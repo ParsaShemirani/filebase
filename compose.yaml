@@ -1,0 +1,11 @@
+services:
+  filebase_db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: filebase
+    volumes:
+      - /Users/parsashemirani/Main/psqldata:/var/lib/postgresql/data
+    ports:
+      - "8432:5432"

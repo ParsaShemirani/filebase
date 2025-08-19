@@ -1,0 +1,3 @@
+Postgres terminal view:
+psql -h localhost -p 8432 -U postgres -d filebase
+(Password = postgres)
