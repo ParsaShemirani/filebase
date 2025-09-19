@@ -132,8 +132,8 @@ class Description(Node):
         ForeignKey("nodes.id"), primary_key=True, init=False
     )
     text: Mapped[str] = mapped_column(Text, unique=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536), repr=False)
     tsv: Mapped[str] = mapped_column(TSVECTOR, Computed("to_tsvector('english', coalesce(text, ''))", persisted=True), init=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536))
 
     __mapper_args__ = {"polymorphic_identity": "description"}
 

@@ -4,6 +4,7 @@ Functions are defined to ingest a file with the universal metadata,
 and build on top of that to automate common workflows, such as ingesting
 a file with an added description, file as part of collection, etc.
 """
+
 import re
 import shutil
 from datetime import datetime, timezone
@@ -14,8 +15,8 @@ from typing import NamedTuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType, aliased
 
-from connection import Session
-from models import (
+from filebase.connection import Session
+from filebase.models import (
     Node,
     Edge,
     File,
@@ -23,8 +24,8 @@ from models import (
     VersionGroup,
     Description,
 )
-from langchain import generate_embedding
-from settings import intake_storage_device_path
+from filebase.lang_func import generate_embedding
+from filebase.settings import intake_storage_device_path
 
 
 FILENAME_REGEX = r"^(?P<root_name>.+)-v(?P<version_number>\d+)-(?P<sha256_hash>[0-9a-fA-F]{64})(?:\.(?P<extension>.+))$"
@@ -70,6 +71,7 @@ def generate_new_filename(
 def handle_version_group(
     session: SessionType, file: File, previous_sha256_hash: str
 ) -> None:
+    # NEEDS REVISION BIG TIME
     F = aliased(File, flat=True)
     version_group = session.scalar(
         select(VersionGroup)
@@ -100,8 +102,10 @@ def handle_version_group(
     session.add(file_version_edge)
 
 
-def create_description(session: SessionType, node: Node, text: str) -> None:
-    description = Description(text=text, embedding=generate_embedding(text=text))
+def associate_description(
+    session: SessionType, node: Node, text: str, embedding: list[float]
+) -> None:
+    description = Description(text=text, embedding=embedding)
     edge = Edge(source_id=node.id, target_id=description.id, type="has_description")
     session.add_all([description, edge])
 
@@ -172,6 +176,8 @@ def ingest_file(
             file = create_file(
                 session=session, file_path=file_path, created_ts=created_ts
             )
+
+            # Handling version number
             filename_components = extract_filename_components(filename=file_path.name)
             if filename_components:
                 handle_version_group(
@@ -180,11 +186,17 @@ def ingest_file(
                     previous_sha256_hash=filename_components.sha256_hash,
                 )
 
+            # Creating / associating description
             if description_text:
-                create_description(session=session, node=file, text=description_text)
+                associate_description(
+                    session=session,
+                    node=file,
+                    text=description_text,
+                    embedding=generate_embedding(text=description_text),
+                )
 
             associate_intake_storage_device(session=session, file=file)
-            
+
         shutil.move(
             src=str(file_path), dst=str(intake_storage_device_path / file.sha256_hash)
         )
