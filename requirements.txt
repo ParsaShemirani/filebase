@@ -2,3 +2,6 @@ SQLAlchemy
 psycopg
 pgvector[SQLALCHEMY]
 ruff
+pyaudio
+openai
+python-dotenv

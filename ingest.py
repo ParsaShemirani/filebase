@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pprint import pprint
 
-from settings import json_database_directory
+from settings import json_database_directory, staging_directory
+from audio_recording import interactive_transcribe
 
 hashes_file_path = json_database_directory / Path("files/hashes.jsonl")
 collections_directory = json_database_directory / Path("collections/")
@@ -42,27 +43,48 @@ def get_file_status(sha256_hash: str):
     Case: File does not exist:
     Returns false, and what id it should have.
     """
-    objects_list = [json.loads(line) for line in open(hashes_file_path, "r", encoding="utf-8")]
+    json_list = [json.loads(line) for line in open(hashes_file_path, "r", encoding="utf-8")]
     
     max_number = 0
-    for object in objects_list:
-        object_id = object['id']
-        if object['sha256_hash'] == sha256_hash:
-            return True, object_id
+    for item in json_list:
+        item_id = item['id']
+        if item['sha256_hash'] == sha256_hash:
+            return True, item_id
 
-        if object_id > max_number:
-            max_number = object_id
+        if item_id > max_number:
+            max_number = item_id
         
     return False, max_number + 1
+
+
+def update_description(file_id: int, description: str):
+    json_file_path = generate_shard_path(kind_directory="files", id_int=file_id, extension="json")
+
+    with open(json_file_path, "r") as f:
+        file_dict = json.load(f)
+
+    file_dict['description'] = description
+    
+    with open(json_file_path, "w", encoding="utf-8") as f:
+        json.dump(file_dict, f, indent=4)
 
 def insert_file(file_path: Path | str, description: str | None = None):
     file_path = Path(file_path)
     file_dict = {}
     file_dict ['sha256_hash'] = generate_sha256_hash(file_path=file_path)
     file_exists, file_dict['id'] = get_file_status(sha256_hash=file_dict['sha256_hash'])
+
     if file_exists:
-        raise FileExistsError(f"File already exists. File id: {file_dict['id']}")
-    
+        if not description:
+            raise FileExistsError(f"File already exists. File id: {file_dict['id']}")
+        print(file_path)
+        description_choice = input("File exists. Update description? [y/n]").strip().lower() in ("y", "yes", "true", "1")
+        if description_choice:
+            update_description(file_id=file_dict['id'], description=description)
+            return True
+        else: 
+            raise FileExistsError(f"File already exists. File id: {file_dict['id']}")
+
     file_dict['extension'] = file_path.suffix.lstrip(".").lower()
 
     file_stats = file_path.stat()
@@ -111,5 +133,54 @@ def insert_file(file_path: Path | str, description: str | None = None):
         f.write("\n")
 
 
-def create_collection(name: str):
-    ...
+def create_collection(description: str) -> int:
+    single_collections_file_path = collections_directory / Path("single_file.jsonl")
+
+    collections_list = [json.loads(line) for line in open(single_collections_file_path, "r", encoding="utf-8")]
+    max_number = 0
+    for item in collections_list:
+        item_id = item['id']
+        if item_id > max_number:
+            max_number = item_id
+
+    collection_dict = {
+        "id": max_number + 1,
+        "contains_files": [],
+        "description": description
+    }
+
+    collection_shard_path = generate_shard_path(kind_directory="collections", id_int=collection_dict['id'], extension='json')
+    collection_file_path = collections_directory / collection_shard_path
+
+    with open(collection_file_path, "w", encoding="utf-8") as f:
+        json.dump(collection_dict, f, indent = 4)
+
+    with open(single_collections_file_path, "a", encoding="utf-8") as f:
+        json.dump(collection_dict, f)
+        f.write("\n")
+
+    return collection_dict['id']
+
+
+
+### Command Line Time
+def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser(prog="SimpleArchive", description="Archives files in the staging area", epilog="By: Parsa Shemirani")
+    parser.add_argument("-d", "--description_mode", action = "store_true")
+    args = parser.parse_args()
+
+    files = [f for f in staging_directory.iterdir() if f.is_file()]
+
+    # Ingest single file
+    if len(files) == 1:
+        if args.description_mode:
+            description = interactive_transcribe()
+            
+    # Create collection, ingest and associate files.
+    if len(files) > 1:
+        ...
+
+
+if __name__ == "__main__":
+    main()
