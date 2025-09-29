@@ -224,7 +224,7 @@ def store_file(remove: bool, file_path: Path | str, file_id: int) -> Path:
     return stored_file_path
 
 
-def ingest_file(remove: bool, file_path: Path, description_mode: bool):
+def ingest_file(remove: bool, file_path: Path, description_mode: bool) -> dict:
     if description_mode:
         if file_path.suffix.lower() in {
             ".jpg",
@@ -244,8 +244,11 @@ def ingest_file(remove: bool, file_path: Path, description_mode: bool):
     stored_file_path = store_file(
         remove=remove, file_path=file_path, file_id=file_dict["id"]
     )
-    print("JAMIE WINNER")
-    print(stored_file_path)
+
+    return(file_dict)
+
+
+def ingest_collection(file_list: list):
 
 
 ### Command Line Time
@@ -266,13 +269,11 @@ def main() -> int:
         print_recent_collections()
         return 0
 
-    files = [f for f in staging_directory.iterdir() if f.is_file()]
+    file_list = [f for f in staging_directory.iterdir() if f.is_file()]
 
     # Ingest single file
-    if len(files) == 1:
-        file_path = files[0]
-        print("JAMIE")
-        print(args.description_mode)
+    if len(file_list) == 1:
+        file_path = file_list[0]
         ingest_file(
             remove=args.remove,
             file_path=file_path,
@@ -280,11 +281,16 @@ def main() -> int:
         )
 
     # Create collection, ingest and associate files.
-    if len(files) > 1:
+    if len(file_list) > 1:
         collection_id = args.existing_collection
         new_collection = args.new_collection
         if collection_id:
-            ...
+            for file_path in file_list:
+                ingest_file(
+                    remove=args.remove,
+                    file_path=file_path,
+                    description_mode=False
+                )
         elif new_collection:
             ...
         else:
