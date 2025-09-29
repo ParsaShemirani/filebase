@@ -1,0 +1,4 @@
+SQLAlchemy
+psycopg
+pgvector[SQLALCHEMY]
+ruff
