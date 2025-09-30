@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-json_database_directory = Path("/Users/parsahome/json_filebase")
-staging_directory = Path("/Users/parsahome/json_filebase/staging")
-intake_storage_device_id = 1
+#Include leading slash for absolute path
+database_path = "/Users/parsahome/file_archive.db"
+
+storage_directory = "/Users/parsahome/archive_storage"
