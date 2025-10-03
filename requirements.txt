@@ -5,3 +5,4 @@ ruff
 pyaudio
 openai
 python-dotenv
+tabulate

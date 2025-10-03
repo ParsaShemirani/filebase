@@ -9,12 +9,14 @@ import argparse
 import shutil
 from datetime import datetime, timezone
 
+from tabulate import tabulate
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
 
+from viewers import wrap_text, print_current_time
 from settings import storage_directory, staging_directory
 from audio_recording import interactive_transcribe
-from simple_models import File, Collection
+from models import File, Collection
 from connection import Session
 
 
@@ -60,15 +62,43 @@ def create_file(file_path: Path | str) -> File:
     file_path = Path(file_path)
 
     file = File(
-        inserted_ts=datetime.now().isoformat(),
+        inserted_ts=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
         sha256_hash=generate_sha256_hash(file_path=file_path),
         extension=file_path.suffix.lstrip(".").lower(),
-        created_ts=determine_created_time(file_path=file_path).isoformat(),
+        created_ts=determine_created_time(file_path=file_path).isoformat(timespec="seconds"),
         collection_id=None,
         description=None,
         embedding=None,
     )
     return file
+
+def print_file_info(file: File, session: SessionType):
+    data = [[
+        file.id,
+        file.inserted_ts,
+        wrap_text(file.sha256_hash),
+        file.extension,
+        file.created_ts,
+        file.collection_id,
+        wrap_text(file.description),
+    ]]
+
+    table = tabulate(
+        data,
+        headers=[
+            "ID",
+            "Inserted TS",
+            "SHA256 Hash",
+            "Extension",
+            "Created TS",
+            "Collection ID",
+            "Description",
+        ]
+    )
+
+    print(10*"\n")
+    print_current_time()
+    print(table)
 
 
 def view_and_describe(file_path: Path) -> str:
@@ -79,6 +109,7 @@ def view_and_describe(file_path: Path) -> str:
         ".mov",
         ".mp3",
         ".mp4",
+        ".avi",
     }:
         subprocess.run(["open", file_path])
 
@@ -94,7 +125,7 @@ def proceed_check():
 
 def store_file(file_path: Path, file_id: int, file_extension: str, remove: bool):
     stored_file_path = storage_directory / Path(f"{file_id}.{file_extension}")
-    shutil.copy(src=file_path, dst=stored_file_path)
+    shutil.copy2(src=file_path, dst=stored_file_path)
 
     if remove:
         file_path.unlink()
@@ -108,6 +139,20 @@ def interactive_collection_creator(session: SessionType) -> Collection:
     )
     return collection
 
+def print_file_list_dates(file_list: list[Path]):
+    data = []
+    for file in file_list:
+        stats  = file.stat()
+        data.append([
+            file.name,
+            datetime.fromtimestamp(stats.st_birthtime).isoformat(),
+            datetime.fromtimestamp(stats.st_mtime)
+        ])
+    table = tabulate(
+        data,
+        headers = ["Name", "Birthtime", "Mtime"]
+    )
+    print(table)
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -131,6 +176,8 @@ def main() -> int:
     ]
 
     if collection_mode:
+        print_file_list_dates(file_list=file_list)
+        proceed_check()
         with Session() as session:
             with session.begin():
                 if collection_id:
@@ -151,22 +198,22 @@ def main() -> int:
             with Session() as session:
                 with session.begin():
                     file = create_file(file_path=file_path)
-
                     existing_file = get_existing_file(file=file, session=session)
                     if existing_file:
                         existing_file.collection_id = collection_id
                     else:
                         file.collection_id = collection_id
                         session.add(file)
-
-                store_file(file_path=file_path, file_id=file.id, file_extension=file.extension, remove=remove_mode)
+                if not existing_file:
+                    store_file(file_path=file_path, file_id=file.id, file_extension=file.extension, remove=remove_mode)
+                    
     else:
         for file_path in file_list:
             print(f"Ingesting file: {file_path}\n")
             with Session() as session:
                 with session.begin():
                     file = create_file(file_path=file_path)
-                    pprint(file.__repr__())
+                    print_file_info(file=file, session=session)
                     proceed_check()
                     description = view_and_describe(file_path=file_path)
                     if get_existing_file(file=file, session=session):

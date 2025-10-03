@@ -86,8 +86,13 @@ def interactive_transcribe() -> str:
             print("Transcription:")
             print(transcription)
 
-            choice = input("Press enter to approve, r to record again")
-            record_again = False if choice == "" else True
+            choice = input("""\
+Press enter to approve, anything else to redo.
+Press 'm' to manually type: """)
+            record_again = False if choice in ("", "m") else True
+        
+    if choice.lower() == "m":
+        transcription = input("Enter text manually: ")
     print(3*"\n")
 
     return transcription
