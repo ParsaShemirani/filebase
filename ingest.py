@@ -7,16 +7,12 @@ from tabulate import tabulate
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
 
+from env_vars import TERMINAL_PATH
 from connection import Session
 from models import File, Collection, Description, Edge
 from audio_recording import interactive_transcribe
 
 ISO_FMT_Z = "%Y-%m-%dT%H:%M:%S%z"
-
-FILE_PATH = Path("/Users/parsahome/main/inbox/ball_drop_script.md")
-
-DIR_PATH = Path("/Users/parsahome/main/scans/theodore_book_scans")
-
 
 
 
@@ -70,8 +66,8 @@ def create_file(fp: Path) -> File:
 
     return file
 
-def ingest_file(desc_text: str | None = None):
-    file = create_file(FILE_PATH)
+def ingest_file(fp: Path, desc_text: str | None = None):
+    file = create_file(fp)
 
     if desc_text:
         description = Description(
@@ -92,7 +88,7 @@ def ingest_file(desc_text: str | None = None):
 
 
 def create_and_ingest_collection():
-    file_paths = get_sorted_files(DIR_PATH)
+    file_paths = get_sorted_files(TERMINAL_PATH)
 
     name_date_table = []
     for fp in file_paths:
@@ -158,5 +154,4 @@ def create_and_ingest_collection():
 
 
 if __name__ == "__main__":
-    #ingest_file(FILE_PATH, desc_text="HELLO WORLD")
     create_and_ingest_collection()

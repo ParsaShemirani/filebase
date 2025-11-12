@@ -6,3 +6,5 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH"))
+
+TERMINAL_PATH = Path(os.getenv("TERMINAL_PATH"))
