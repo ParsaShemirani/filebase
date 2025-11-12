@@ -18,6 +18,10 @@ from sqlalchemy.orm import (
 
 ISO_FMT_Z = "%Y-%m-%dT%H:%M:%S%z"
 
+def get_current_time_str() -> str:
+    now = datetime.now(tz=timezone.utc)
+    now_str = now.strftime(format=ISO_FMT_Z)
+    return now_str
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
@@ -31,7 +35,6 @@ class Node(Base):
         Integer, primary_key=True, autoincrement=True, init=False
     )
     type: Mapped[str] = mapped_column(TEXT, init=False)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
 
     # Edge relationships
     outgoing_relationships: Mapped[list[Edge]] = relationship(
@@ -49,6 +52,9 @@ class Node(Base):
         init=False,
     )
 
+    # Default
+    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False, default_factory=get_current_time_str, init=False)
+
     # Joined table inheritance
     __mapper_args__ = {"polymorphic_identity": "node", "polymorphic_on": "type"}
 
@@ -59,7 +65,6 @@ class Edge(Base):
     source_id: Mapped[int] = mapped_column(ForeignKey("nodes.id"), primary_key=True, init=False)
     target_id: Mapped[int] = mapped_column(ForeignKey("nodes.id"), primary_key=True, init=False)
     type: Mapped[str] = mapped_column(TEXT, primary_key=True)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
 
     # Node relationships
     source_node: Mapped[Node] = relationship(
@@ -76,6 +81,9 @@ class Edge(Base):
         repr=False,
         #init=False,
     )
+
+    # Default
+    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False, default_factory=get_current_time_str, init=False)
 
 
 class File(Node):

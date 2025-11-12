@@ -6,3 +6,7 @@ pydantic
 pytest
 mypy
 ruff
+tabulate
+
+pyaudio
+openai
