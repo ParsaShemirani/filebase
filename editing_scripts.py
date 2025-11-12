@@ -3,8 +3,8 @@ from datetime import datetime
 import os
 
 def date_edit():
-    target_dir = Path("/Users/parsahome/archive_program/staging/timez")
-    epoch_time = datetime(2010, 6, 20).timestamp()
+    target_dir = Path("/Users/parsahome/archive_program/staging/")
+    epoch_time = datetime(2016, 1, 1).timestamp()
 
     # recurse through files
     for file_path in target_dir.rglob("*"):
@@ -12,6 +12,11 @@ def date_edit():
             os.utime(file_path, (epoch_time, epoch_time))
             print(f"Updated: {file_path}")
 
+def file_date_edit():
+    target_file = Path("/Users/parsahome/archive_program/staging/MOV00A.mp4")
+    epoch_time = datetime(2016, 1, 1).timestamp()
+    os.utime(target_file, (epoch_time, epoch_time))
+    print(f"Updated: {target_file}")
 
 def remove_file_kind():
     target_dir = Path("/Users/parsahome/archive_program/staging")
@@ -32,3 +37,14 @@ def mod_to_mpg():
             new_path = item.with_suffix(".mpg")
             item.rename(new_path)
             print(f"Renamed: {item.name} -> {new_path.name}")
+
+
+if __name__ == "__main__":
+    if input("Date edit? :") == "y":
+        date_edit()
+    elif input("File date edit?") == "y":
+        file_date_edit()
+    elif input("RFK?: ") == "y":
+        remove_file_kind()
+    elif input("Mod to mpg?: ") == "y":
+        mod_to_mpg()

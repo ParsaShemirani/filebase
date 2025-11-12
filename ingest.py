@@ -200,7 +200,7 @@ def main() -> int:
                     file = create_file(file_path=file_path)
                     existing_file = get_existing_file(file=file, session=session)
                     if existing_file:
-                        existing_file.collection_id = collection_id
+                        print(f"Existing File {file_path.name} left unchanged. (Existing ID {existing_file.id})")
                     else:
                         file.collection_id = collection_id
                         session.add(file)
