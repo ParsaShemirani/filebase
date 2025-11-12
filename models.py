@@ -107,8 +107,8 @@ class StorageDevice(Node):
     id: Mapped[int] = mapped_column(
         ForeignKey("nodes.id"), primary_key=True, init=False
     )
-    name: Mapped[str] = mapped_column(TEXT)
     size: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(TEXT)
     path: Mapped[str | None] = mapped_column(TEXT, nullable=True)
 
     __mapper_args__ = {"polymorphic_identity": "storage_device"}
