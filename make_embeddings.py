@@ -136,6 +136,6 @@ def see_relevant_files():
 
 
 if __name__ == "__main__":
-    see_relevant_collections()
-    #see_relevant_files()
+    #see_relevant_collections()
+    see_relevant_files()
     #generate_file_embeddings()
