@@ -2,18 +2,19 @@ import shutil
 from hashlib import file_digest
 from pathlib import Path
 from datetime import datetime, timezone
+from typing_extensions import Annotated
 
 from tabulate import tabulate
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
+import typer
 
-from env_vars import TERMINAL_PATH
+from env_vars import TERMINAL_PATH, STORAGE_PATH
 from connection import Session
 from models import File, Collection, Description, Edge
 from audio_recording import interactive_transcribe
 
 ISO_FMT_Z = "%Y-%m-%dT%H:%M:%S%z"
-
 
 
 def get_sorted_files(dir_path: Path) -> list[Path] | None:
@@ -66,92 +67,87 @@ def create_file(fp: Path) -> File:
 
     return file
 
-def ingest_file(fp: Path, desc_text: str | None = None):
-    file = create_file(fp)
 
-    if desc_text:
-        description = Description(
-            text=desc_text
-        )
-        desc_edge = Edge(
-            type="has_description",
-            source_node=file,
-            target_node=description
-        )
-        with Session() as session:
-            with session.begin():
-                session.add_all([file, description, desc_edge])
-    else:
-        with Session() as session:
-            with session.begin():
-                session.add(File)
-
-
-def create_and_ingest_collection():
-    file_paths = get_sorted_files(TERMINAL_PATH)
-
+def print_created_times(file_paths: list[Path]):
     name_date_table = []
     for fp in file_paths:
         name_date_table.append([fp.name, determine_created_time(fp)])
-
-    print(tabulate(name_date_table, headers=["Name", "Determined Ctime"], tablefmt="grid"))
-
-    if input("Press s to stop") == "s":
-        exit()
-
-    # Collection making
-    c_name = input("Collection name: ")
-    collection = Collection(
-        name=c_name
+    print(
+        tabulate(name_date_table, headers=["Name", "Determined Ctime"], tablefmt="grid")
     )
 
-    print("Dictate description for this collection.\n")
-    c_desc = interactive_transcribe()
-    description = Description(
-        text=c_desc
-    )
 
-    description_edge = Edge(
-        type="has_description",
-        source_node=collection,
-        target_node=description
-    )
+def main(
+    file_mode: Annotated[bool, typer.Option("--file", "-f")] = False,
+    collection_mode: Annotated[bool, typer.Option("--collection", "-c")] = False,
+):
+    if file_mode:
+        fp_list = get_sorted_files(TERMINAL_PATH)
+        fp = fp_list[0]
+        
+        file = create_file(fp)
+        print(f"\n\nName: {fp.name} | Ctime: {file.created_ts}")
+        if input("Press e to exit: ") == "e":
+            exit()
 
-    with Session() as session:
-        with session.begin():
-            session.add_all([collection, description, description_edge])
-            
-            session.flush()
-            print("\nCollection Added:")
-            print(collection)
-            print(description)
-            print(description_edge)
+        print("Dictate file description")
+        description = Description(text=interactive_transcribe())
+        description_edge = Edge(
+            type="has_description", source_node=file, target_node=description
+        )
 
+        with Session() as session:
+            with session.begin():
+                session.add_all([file, description, description_edge])
+                print("")
 
-    # Create and insert the files
-    with Session() as session:
-        with session.begin():
-            for fp in file_paths:
-                file = create_file(fp)
-                collection_edge = Edge(
-                    type="in_collection",
-                    source_node=file,
-                    target_node=collection
-                )
-                session.add_all([file, collection_edge])
-                
+        shutil.copy2(str(fp), str(STORAGE_PATH))
+        fp.unlink()
+
+    if collection_mode:
+        fp_list = get_sorted_files(TERMINAL_PATH)
+
+        print("\n\n")
+        print_created_times(fp_list)
+        if input("Press e to exit: ") == "n":
+            exit()
+
+        collection = Collection(name=input("Collection name: "))
+
+        print("Dictate description for this collection.\n")
+        description = Description(text=interactive_transcribe())
+
+        description_edge = Edge(
+            type="has_description", source_node=collection, target_node=description
+        )
+
+        with Session() as session:
+            with session.begin():
+                session.add_all([collection, description, description_edge])
+
                 session.flush()
-                print("\n\nFile Added:")
-                print(file)
-                print(collection_edge)
+                print("\nCollection Added:")
+                print(collection)
+                print(description)
+                print(description_edge)
 
-                shutil.copy2
+        with Session() as session:
+            with session.begin():
+                for fp in fp_list:
+                    file = create_file(fp)
+                    collection_edge = Edge(
+                        type="in_collection", source_node=file, target_node=collection
+                    )
+                    session.add_all([file, collection_edge])
 
+                    session.flush()
+                    print("\n\nFile Added:")
+                    print(file)
+                    print(collection_edge)
 
-
-
-
+                    shutil.copy2(str(fp), str(STORAGE_PATH))
+                    fp.unlink()
 
 
 if __name__ == "__main__":
-    create_and_ingest_collection()
+    typer.run(main)

@@ -101,19 +101,6 @@ class File(Node):
     __mapper_args__ = {"polymorphic_identity": "file"}
 
 
-class StorageDevice(Node):
-    __tablename__ = "storage_devices"
-
-    id: Mapped[int] = mapped_column(
-        ForeignKey("nodes.id"), primary_key=True, init=False
-    )
-    size: Mapped[int] = mapped_column(Integer)
-    name: Mapped[str] = mapped_column(TEXT)
-    path: Mapped[str | None] = mapped_column(TEXT, nullable=True)
-
-    __mapper_args__ = {"polymorphic_identity": "storage_device"}
-
-
 class Description(Node):
     __tablename__ = "descriptions"
 
@@ -134,3 +121,20 @@ class Collection(Node):
     name: Mapped[str] = mapped_column(TEXT, unique=True)
 
     __mapper_args__ = {"polymorphic_identity": "collection"}
+
+
+"""
+Future plan, let's start with just one local directory
+
+class StorageDevice(Node):
+    __tablename__ = "storage_devices"
+
+    id: Mapped[int] = mapped_column(
+        ForeignKey("nodes.id"), primary_key=True, init=False
+    )
+    size: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(TEXT)
+    path: Mapped[str | None] = mapped_column(TEXT, nullable=True)
+
+    __mapper_args__ = {"polymorphic_identity": "storage_device"}
+"""
