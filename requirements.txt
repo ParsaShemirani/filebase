@@ -7,6 +7,7 @@ pytest
 mypy
 ruff
 tabulate
+pandas
 
 pyaudio
 openai

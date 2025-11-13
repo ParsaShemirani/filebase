@@ -99,10 +99,15 @@ def main(
         with Session() as session:
             with session.begin():
                 session.add_all([file, description, description_edge])
-                print("")
 
-        shutil.copy2(str(fp), str(STORAGE_PATH))
-        fp.unlink()
+                session.flush()
+                print("File Added:")
+                print(file)
+                print(description)
+                print(description_edge)
+
+                shutil.copy2(str(fp), str(STORAGE_PATH / f"{file.id}.{file.extension}"))
+                fp.unlink()
 
     if collection_mode:
         fp_list = get_sorted_files(TERMINAL_PATH)
@@ -145,7 +150,7 @@ def main(
                     print(file)
                     print(collection_edge)
 
-                    shutil.copy2(str(fp), str(STORAGE_PATH))
+                    shutil.copy2(str(fp), str(STORAGE_PATH / f"{file.id}.{file.extension}"))
                     fp.unlink()
 
 
