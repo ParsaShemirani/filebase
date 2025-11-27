@@ -11,7 +11,7 @@ import typer
 
 from env_vars import TERMINAL_PATH, STORAGE_PATH
 from connection import Session
-from models import File, Collection
+from models import File, Collection, Label, FileLabel
 from audio_recording import interactive_transcribe
 
 ISO_FMT_Z = "%Y-%m-%dT%H:%M:%S%z"
@@ -80,69 +80,84 @@ def print_created_times(file_paths: list[Path]):
 
 
 def main(
-    file_mode: Annotated[bool, typer.Option("--file", "-f")] = False,
-    collection_mode: Annotated[bool, typer.Option("--collection", "-c")] = False,
+    description: Annotated[str, typer.Option("--description", "-d")] = None,
+    collection_id: Annotated[int, typer.Option("--collection_id", "-cid")] = None,
+    label_id: Annotated[int, typer.Option("--label_id", "-lid")] = None,
 ):
-    if file_mode:
-        fp_list = get_sorted_files(TERMINAL_PATH)
-        fp = fp_list[0]
 
-        file = create_file(fp)
-        print(f"\n\nName: {fp.name} | Ctime: {file.created_ts}")
-        if input("Press e to exit: ") == "e":
-            exit()
+    fp_list = get_sorted_files(TERMINAL_PATH)
 
-        print("Dictate file description")
-        file.description = interactive_transcribe()
+    print("\n\n")
+    print_created_times(fp_list)
+    if input("Press e to exit: ") == "n":
+        exit()
 
-        with Session() as session:
-            with session.begin():
+    with Session() as session:
+        with session.begin():
+            if collection_id:
+                if collection_id == -1:
+                    collection = Collection(
+                        name=input("Enter collection name: "),
+                        parent_id=None,
+                        description=interactive_transcribe()
+                    )
+                    session.add(collection)
+                    session.flush()
+                    print("Collection created:")
+                    print(collection, "\n\n")
+                else:
+                    collection = session.scalar(select(Collection).where(Collection.id == collection_id))
+                    if collection is None:
+                        raise ValueError("Collection id not found")
+            else:
+                collection = None
+
+            if label_id:
+                if label_id == -1:
+                    label = Label(
+                        name=input("Enter label name: "),
+                        description=interactive_transcribe()
+                    )
+                    session.add(label)
+                    session.flush()
+                    print("Label created:")
+                    print(label, "\n\n")
+                else:
+                    label = session.scalar(select(Label).where(Label.id == label_id))
+                    if label is None:
+                        raise ValueError("Label id not found")
+            else:
+                label = None
+
+            for fp in fp_list:
+                file = create_file(fp)
+
+                if description:
+                    if description == "i":
+                        file.description = interactive_transcribe()
+                    else:
+                        file.description = description
+                
+                if collection:
+                    file.collection_id = collection.id
+
                 session.add(file)
-
                 session.flush()
-                print("File Added:")
-                print(file)
+                print("File added:")
+                print(file, "\n\n")
+
+                if label:
+                    fl = FileLabel(file.id, label.id)
+                    session.add(fl)
+                    session.flush()
+
+                    print("Label Added:")
+                    print(fl, "\n\n")
 
                 shutil.copy2(str(fp), str(STORAGE_PATH / f"{file.id}.{file.extension}"))
                 fp.unlink()
 
-    if collection_mode:
-        fp_list = get_sorted_files(TERMINAL_PATH)
 
-        print("\n\n")
-        print_created_times(fp_list)
-        if input("Press e to exit: ") == "n":
-            exit()
-
-        collection = Collection(name=input("Collection name: "), parent_id=None, description=None)
-
-        print("Dictate description for this collection.\n")
-        collection.description = interactive_transcribe()
-
-
-        with Session() as session:
-            with session.begin():
-                session.add(collection)
-
-                session.flush()
-                print("\nCollection Added:")
-                print(collection)
-
-
-                for fp in fp_list:
-                    file = create_file(fp)
-
-                    file.collection_id = collection.id
-                    session.add(file)
-
-                    session.flush()
-                    print("\n\nFile Added:")
-                    print(file)
-
-                    shutil.copy2(
-                        str(fp), str(STORAGE_PATH / f"{file.id}.{file.extension}")
-                    )
-                    fp.unlink()
     
 
 if __name__ == "__main__":
