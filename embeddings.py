@@ -1,8 +1,10 @@
 from pathlib import Path
+from typing_extensions import Annotated
 
 from sqlalchemy import select
 from openai import OpenAI
 from tabulate import tabulate
+import typer
 
 from env_vars import OPENAI_API_KEY, EMBEDDINGS_PATH
 from connection import Session
@@ -127,7 +129,16 @@ def searcher() -> None:
     print(tabulate(sorted_similarities, headers=["Type", "ID", "Similarity Score", "Description"], tablefmt="grid", maxcolwidths=30))
 
 
+def main(
+    update: Annotated[bool, typer.Option("--update", "-u")] = False,
+    search: Annotated[bool, typer.Option("--search", "-s")] = False
+):
+    if update:
+        generate_collection_embeddings()
+        generate_file_embeddings()
 
+    if search:
+        searcher()
 
 if __name__ == "__main__":
-    searcher()
+    typer.run(main)
