@@ -11,3 +11,5 @@ STORAGE_PATH = Path(os.getenv("STORAGE_PATH"))
 
 TERMINAL_PATH = Path(os.getenv("TERMINAL_PATH"))
 
+EMBEDDINGS_PATH = Path(os.getenv("EMBEDDINGS_PATH"))
+
