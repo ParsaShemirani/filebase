@@ -89,7 +89,7 @@ def main(
 
     print("\n\n")
     print_created_times(fp_list)
-    if input("Press e to exit: ") == "n":
+    if input("Press e to exit: ") == "e":
         exit()
 
     with Session() as session:
