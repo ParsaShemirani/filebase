@@ -32,11 +32,6 @@ from ingest import create_file
 from models import File, FileRelationship
 from connection import Session
 
-image_extensions = {"arw", "dng", "jpg", "png", "tif", "tiff", "heic"}
-audio_extensions = {"wav", "aiff", "aif", "flac", "mp3", "aac", "m4a", "ogg", "opus"}
-video_extensions = {"mp4", "mov", "m4v", "avi", "mkv", "webm", "mpeg", "mpg"}
-
-all_proxy_extensions = image_extensions | audio_extensions | video_extensions
 
 
 def make_image_proxy(input_file_path: Path, output_file_path: Path):

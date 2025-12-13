@@ -5,6 +5,7 @@ from sqlalchemy import select
 from openai import OpenAI
 from tabulate import tabulate
 import typer
+import requests
 
 from env_vars import OPENAI_API_KEY, EMBEDDINGS_PATH
 from connection import Session
@@ -35,13 +36,22 @@ def get_embedding_paths(file_only: bool = False, collection_only: bool = False) 
         else:
             return sorted_embedding_paths
 
-
+"""
 def generate_embedding(text: str) -> list[float]:
     response = client.embeddings.create(
         input=text,
         model="text-embedding-3-small"
     )
     return response.data[0].embedding
+"""
+
+def generate_embedding(text: str) -> list[float]:
+    response = requests.post(
+        "http://127.0.0.1:8000/embed",
+        json={"text": text}
+    )
+    response.raise_for_status()
+    return response.json()['embedding']
 
 def generate_collection_embeddings():
     collection_embedding_paths = get_embedding_paths(collection_only=True)
