@@ -13,3 +13,4 @@ jupyter
 pyaudio
 openai
 openai-whisper
+faster-whisper
