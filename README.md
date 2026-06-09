@@ -2,11 +2,11 @@
 ### 2026-06-09
 
 ## Main entity:
-- **File**:A specific sequence of bits which is never modified
+- **File**: A specific sequence of bits which is never modified
 
 ## Ideas for other information stored in filebase:
 - **Storage device**: An entity which corresponds to a physical storage medium. We record its physical location, capacity, what files are on it, etc.
-- **Bundle**:An entity which contains a set of files and / or bundles which is never modified
+- **Bundle**: An entity which contains a set of files and / or bundles which is never modified
 - **Tag**: An entity which contains a set of files which can always change
 - **File description**: A user written semantic description of the meaning of the file, used for semantic search and more
 
