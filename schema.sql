@@ -1,11 +1,29 @@
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE files (
     id TEXT PRIMARY KEY,
-    sha256_hash NOT NULL,
-    size_bytes NOT NULL,
-    extension NOT NULL,
-    inserted_at NOT NULL,
+    sha256_hash TEXT NOT NULL,
+    extension TEXT NOT NULL,
+    inserted_ts TEXT NOT NULL,
+    created_ts TEXT
+);
+
+CREATE TABLE bundles (
+    id TEXT PRIMARY KEY,
+    parent_id TEXT,
+    inserted_ts TEXT NOT NULL,
+    FOREIGN KEY (parent_id) REFERENCES bundles(id)
+);
 
 
-    fs_created_at TEXT,
-    fs_modified_at TEXT
-)
+CREATE TABLE file_bundles (
+    id INTEGER PRIMARY KEY,
+    file_id TEXT NOT NULL,
+    bundle_id TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    inserted_ts TEXT NOT NULL,
+    FOREIGN KEY (file_id) REFERENCES files(id),
+    FOREIGN KEY (bundle_id) REFERENCES bundles(id),
+    UNIQUE(file_id, bundle_id)
+);
+
