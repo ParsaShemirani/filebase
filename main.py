@@ -1,11 +1,14 @@
 from pathlib import Path
 import uuid
+from datetime import datetime, timezone
+from dataclasses import asdict
 
+from tabulate import tabulate
+import typer
 from models import File, Bundle, FileBundle
 from connection import Session
 from hashlib import file_digest
 
-from datetime import datetime, timezone
 
 IGNORED_NAMES = {".DS_Store"}
 
@@ -56,15 +59,16 @@ def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundl
         inserted_ts=get_current_time_str(),
     )
 
-def build_bundle(bundle_path: Path, parent_id: str | None = None):
+def build_bundle(bundle_path: Path, parent_id: str | None):
     bundle = create_bundle(bundle_path=bundle_path, parent_id=parent_id)
 
-    files = []
-    bundles = [bundle]
-    file_bundles = []
+    files: list[File] = []
+    bundles: list[Bundle] = [bundle]
+    file_bundles: list[FileBundle] = []
     for child_path in bundle_path.iterdir():
-        if should_ignore_path(file_path=child_path):
+        if should_ignore_path(path=child_path):
             continue
+
         if child_path.is_file():
             file = create_file(file_path=child_path)
             file_bundle = create_file_bundle(file=file, bundle=bundle, file_path=child_path)
@@ -79,5 +83,31 @@ def build_bundle(bundle_path: Path, parent_id: str | None = None):
     return files, bundles, file_bundles
 
 
+def tabulate_objects(objects: list[object], max_width: int) -> None:
+    if not objects:
+        print("Empty")
+        return
 
+    print(
+        tabulate(
+            [asdict(obj) for obj in objects],
+            headers="keys",
+            tablefmt="grid",
+            maxcolwidths=max_width
+        )
+    )
 
+def main(file_str: str = None, bundle_str: str = None):
+    if bundle_str:
+        files, bundles, file_bundles = build_bundle(
+            bundle_path=Path(bundle_str),
+            parent_id=None
+        )
+        tabulate_objects(objects=files, max_width=20)
+        tabulate_objects(objects=bundles, max_width=20)
+        tabulate_objects(objects=file_bundles, max_width=20)
+
+        
+
+if __name__ == "__main__":
+    typer.run(main)

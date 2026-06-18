@@ -1,4 +1,6 @@
 SQLAlchemy
 python-dotenv
+typer
+tabulate
 
 ruff
