@@ -7,6 +7,11 @@ from hashlib import file_digest
 
 from datetime import datetime, timezone
 
+IGNORED_NAMES = {".DS_Store"}
+
+def should_ignore_path(path: Path) -> bool:
+    return path.name in IGNORED_NAMES
+
 def datetime_to_str(dt: datetime) -> str:
     if dt.tzinfo is None:
         raise ValueError("datetime must be timezone-aware")
@@ -51,26 +56,28 @@ def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundl
         inserted_ts=get_current_time_str(),
     )
 
-def build_bundle(bundle_path: Path, parent_id: str | None):
+def build_bundle(bundle_path: Path, parent_id: str | None = None):
     bundle = create_bundle(bundle_path=bundle_path, parent_id=parent_id)
 
     files = []
+    bundles = [bundle]
     file_bundles = []
-    for item in bundle_path.iterdir():
-        if item.is_file():
-            file = create_file(file_path=item)
+    for child_path in bundle_path.iterdir():
+        if should_ignore_path(file_path=child_path):
+            continue
+        if child_path.is_file():
+            file = create_file(file_path=child_path)
+            file_bundle = create_file_bundle(file=file, bundle=bundle, file_path=child_path)
             files.append(file)
-            file_bundle = create_file_bundle(file=file, bundle=bundle, file_path=item)
             file_bundles.append(file_bundle)
-        elif item.is_dir():
-            print("DIR :", item.name)
-    return files, file_bundles
 
-def main():
-    bundle_path = Path("/Users/parsahome/Desktop/project_storage_daniel_james")
-    bundle = Bundle(
-        id=str(uuid.uuid4()),
-        name=bundle_path.name,
-        inserted_ts=get_current_time_str(),
-        parent_id=None
-    )
+        elif child_path.is_dir():
+            child_files, child_bundles, child_file_bundles = build_bundle(bundle_path=child_path, parent_id = bundle.id)
+            files.extend(child_files)
+            bundles.extend(child_bundles)
+            file_bundles.extend(child_file_bundles)
+    return files, bundles, file_bundles
+
+
+
+
