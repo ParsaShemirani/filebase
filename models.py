@@ -21,11 +21,13 @@ class Bundle(Base):
     __tablename__ = "bundles"
 
     id: Mapped[str] = mapped_column(TEXT, primary_key=True)
+    name: Mapped[str] = mapped_column(TEXT, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
+
     parent_id: Mapped[str | None] = mapped_column(
         TEXT,
         ForeignKey("bundles.id"),
     )
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
 
 
 class FileBundle(Base):
