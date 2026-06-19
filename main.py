@@ -2,16 +2,19 @@ from pathlib import Path
 import uuid
 from datetime import datetime, timezone
 from dataclasses import asdict
+import shutil
 
 from tabulate import tabulate
 import typer
-from env_vars import TERMINAL_PATH
+from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR
 from models import File, Bundle, FileBundle
 from connection import Session
 from hashlib import file_digest
 
 
 IGNORED_NAMES = {".DS_Store"}
+
+TERMINAL_PATH = Path(TERMINAL_PATH_STR)
 
 def should_ignore_path(path: Path) -> bool:
     return path.name in IGNORED_NAMES
@@ -108,23 +111,31 @@ def main(bundle_str: str = None):
             bundle_path=Path(bundle_str),
             parent_id=None
         )
+        file_ids = [f.id for f in files]
+
         tabulate_objects(objects=files, max_width=20)
         tabulate_objects(objects=bundles, max_width=20)
         tabulate_objects(objects=file_bundles, max_width=20)
 
+        if input("Copy to terminal? (y/n)").lower() == "y":
+            db_inserted_folder_path = TERMINAL_PATH / "db_inserted"
+            db_inserted_folder_path.mkdir(exist_ok=False)
+            for file_id in file_ids:
+                shutil.copy(
+                    src=str(file_path_dict[file_id]),
+                    dst=str(db_inserted_folder_path / file_id),
+                )
+
+        print(f"Database Path: {DATABASE_PATH_STR}")
         if input("Insert into database? (y/n): ").lower() == "y":
             with Session() as session:
                 with session.begin():
                     session.add_all(files)
                     session.add_all(bundles)
                     session.add_all(file_bundles)
-        else:
-            return
+            print("All objects added to database!")
 
-        if input("Copy to terminal? (y/n)").lower() == "y":
-            db_inserted_folder_path = TERMINAL_PATH / "db_inserted"
-            for f in files:
-                ...
+
         
 
 if __name__ == "__main__":

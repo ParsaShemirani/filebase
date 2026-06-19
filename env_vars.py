@@ -9,5 +9,5 @@ def get_required_env(name: str) -> str:
         raise RuntimeError(f"{name} not set in .env")
     return value
 
-DATABASE_PATH: str = get_required_env("DATABASE_PATH")
-TERMINAL_PATH: str = get_required_env("TERMINAL_PATH")
+DATABASE_PATH_STR = get_required_env("DATABASE_PATH_STR")
+TERMINAL_PATH_STR = get_required_env("TERMINAL_PATH_STR")
