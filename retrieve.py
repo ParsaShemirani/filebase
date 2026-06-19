@@ -114,10 +114,23 @@ def load_bundle(bundle_id: str, session: SessionType):
     return files, bundles, file_bundles
 
 
+def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> None:
+    bundle = session.scalar(select(Bundle).where(Bundle.id == bundle_id))
+    if bundle is None:
+        raise ValueError("Bundle not found")
+    output_dir = parent_dir / bundle.name
+    output_dir.mkdir()
+    file_bundles = session.scalars(select(FileBundle).where(FileBundle.bundle_id == bundle_id)).all()
+    for file_bundle in file_bundles:
+        storage_file_path = STORAGE_PATH / file_bundle.file_id
+        destination_file_path = output_dir / file_bundle.file_name
+        shutil.copy(src=str(storage_file_path), dst=str(destination_file_path))
+    child_bundles = session.scalars(
+        select(Bundle).where(Bundle.parent_id == bundle_id)
+    ).all()
 
-
-
-
+    for child_bundle in child_bundles:
+        retrieve_bundle(bundle_id=child_bundle.id, parent_dir=output_dir, session=session)
 
 with Session() as session:
     files, bundles, file_bundles = load_bundle(bundle_id="37bf9253-eb95-4b45-964d-597f9a3e82fc", session=session)
@@ -126,3 +139,5 @@ with Session() as session:
     pprint(files)
     pprint(bundles)
     pprint(file_bundles)
+
+    retrieve_bundle(bundle_id="37bf9253-eb95-4b45-964d-597f9a3e82fc", parent_dir=TERMINAL_PATH, session=session)
