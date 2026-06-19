@@ -5,6 +5,7 @@ from dataclasses import asdict
 
 from tabulate import tabulate
 import typer
+from env_vars import TERMINAL_PATH
 from models import File, Bundle, FileBundle
 from connection import Session
 from hashlib import file_digest
@@ -65,6 +66,8 @@ def build_bundle(bundle_path: Path, parent_id: str | None):
     files: list[File] = []
     bundles: list[Bundle] = [bundle]
     file_bundles: list[FileBundle] = []
+    file_path_dict: dict[str, Path] = {}
+
     for child_path in bundle_path.iterdir():
         if should_ignore_path(path=child_path):
             continue
@@ -74,13 +77,15 @@ def build_bundle(bundle_path: Path, parent_id: str | None):
             file_bundle = create_file_bundle(file=file, bundle=bundle, file_path=child_path)
             files.append(file)
             file_bundles.append(file_bundle)
+            file_path_dict[file.id] = child_path
 
         elif child_path.is_dir():
-            child_files, child_bundles, child_file_bundles = build_bundle(bundle_path=child_path, parent_id = bundle.id)
+            child_files, child_bundles, child_file_bundles, child_file_path_dict = build_bundle(bundle_path=child_path, parent_id = bundle.id)
             files.extend(child_files)
             bundles.extend(child_bundles)
             file_bundles.extend(child_file_bundles)
-    return files, bundles, file_bundles
+            file_path_dict.update(child_file_path_dict)
+    return files, bundles, file_bundles, file_path_dict
 
 
 def tabulate_objects(objects: list[object], max_width: int) -> None:
@@ -97,9 +102,9 @@ def tabulate_objects(objects: list[object], max_width: int) -> None:
         )
     )
 
-def main(file_str: str = None, bundle_str: str = None):
+def main(bundle_str: str = None):
     if bundle_str:
-        files, bundles, file_bundles = build_bundle(
+        files, bundles, file_bundles, file_path_dict = build_bundle(
             bundle_path=Path(bundle_str),
             parent_id=None
         )
@@ -107,6 +112,19 @@ def main(file_str: str = None, bundle_str: str = None):
         tabulate_objects(objects=bundles, max_width=20)
         tabulate_objects(objects=file_bundles, max_width=20)
 
+        if input("Insert into database? (y/n): ").lower() == "y":
+            with Session() as session:
+                with session.begin():
+                    session.add_all(files)
+                    session.add_all(bundles)
+                    session.add_all(file_bundles)
+        else:
+            return
+
+        if input("Copy to terminal? (y/n)").lower() == "y":
+            db_inserted_folder_path = TERMINAL_PATH / "db_inserted"
+            for f in files:
+                ...
         
 
 if __name__ == "__main__":
