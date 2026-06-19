@@ -10,19 +10,20 @@ CREATE TABLE files (
 
 CREATE TABLE bundles (
     id TEXT PRIMARY KEY,
-    parent_id TEXT,
+    name TEXT NOT NULL,
     inserted_ts TEXT NOT NULL,
+    parent_id TEXT,
     FOREIGN KEY (parent_id) REFERENCES bundles(id)
 );
 
-CREATE TABLE file_bundles (
-    file_id TEXT NOT NULL,
+CREATE TABLE bundle_files (
     bundle_id TEXT NOT NULL,
+    file_id TEXT NOT NULL,
     file_name TEXT NOT NULL,
     inserted_ts TEXT NOT NULL,
 
-    PRIMARY KEY (file_id, bundle_id),
+    PRIMARY KEY (bundle_id, file_id),
 
-    FOREIGN KEY (file_id) REFERENCES files(id),
-    FOREIGN KEY (bundle_id) REFERENCES bundles(id)
+    FOREIGN KEY (bundle_id) REFERENCES bundles(id),
+    FOREIGN KEY (file_id) REFERENCES files(id)
 );

@@ -8,7 +8,7 @@ from pprint import pprint
 from tabulate import tabulate
 import typer
 from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
-from models import File, Bundle, FileBundle
+from models import File, Bundle, BundleFile
 from connection import Session
 from hashlib import file_digest
 from sqlalchemy import select
@@ -60,10 +60,10 @@ def create_bundle(bundle_path: Path, parent_id: str | None) -> Bundle:
         parent_id=parent_id,
     )
 
-def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundle:
-    return FileBundle(
-        file_id=file.id,
+def create_bundle_file(bundle: Bundle, file: File, file_path: Path) -> BundleFile:
+    return BundleFile(
         bundle_id=bundle.id,
+        file_id=file.id,
         file_name=file_path.name,
         inserted_ts=get_current_time_str(),
     )
@@ -71,7 +71,7 @@ def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundl
 def build_bundle(bundle_path: Path, parent_id: str | None):
     files: list[File] = []
     bundles: list[Bundle] = []
-    file_bundles: list[FileBundle] = []
+    bundle_files: list[BundleFile] = []
     file_path_dict: dict[str, Path] = {}
 
     bundle = create_bundle(bundle_path=bundle_path, parent_id=parent_id)
@@ -83,18 +83,18 @@ def build_bundle(bundle_path: Path, parent_id: str | None):
 
         if child_path.is_file():
             file = create_file(file_path=child_path)
-            file_bundle = create_file_bundle(file=file, bundle=bundle, file_path=child_path)
+            bundle_file = create_bundle_file(bundle=bundle, file=file, file_path=child_path)
             files.append(file)
-            file_bundles.append(file_bundle)
+            bundle_files.append(bundle_file)
             file_path_dict[file.id] = child_path
 
         elif child_path.is_dir():
-            child_files, child_bundles, child_file_bundles, child_file_path_dict = build_bundle(bundle_path=child_path, parent_id = bundle.id)
+            child_files, child_bundles, child_bundle_files, child_file_path_dict = build_bundle(bundle_path=child_path, parent_id = bundle.id)
             files.extend(child_files)
             bundles.extend(child_bundles)
-            file_bundles.extend(child_file_bundles)
+            bundle_files.extend(child_bundle_files)
             file_path_dict.update(child_file_path_dict)
-    return files, bundles, file_bundles, file_path_dict
+    return files, bundles, bundle_files, file_path_dict
 
 
 def tabulate_objects(objects: list[object], max_width: int) -> None:
@@ -114,7 +114,7 @@ def tabulate_objects(objects: list[object], max_width: int) -> None:
 def load_bundle(bundle_id: str, session: SessionType):
     files: list[File] = []
     bundles: list[Bundle] = []
-    file_bundles: list[FileBundle] = []
+    bundle_files: list[BundleFile] = []
 
 
     bundle = session.scalar(select(Bundle).where(Bundle.id == bundle_id))
@@ -125,25 +125,25 @@ def load_bundle(bundle_id: str, session: SessionType):
     ).all()
     child_files = session.scalars(
         select(File)
-        .join(FileBundle, File.id == FileBundle.file_id)
-        .where(FileBundle.bundle_id == bundle_id)
+        .join(BundleFile, File.id == BundleFile.file_id)
+        .where(BundleFile.bundle_id == bundle_id)
     ).all()
 
-    child_file_bundles = session.scalars(
-        select(FileBundle).where(FileBundle.bundle_id == bundle_id)
+    child_bundle_files = session.scalars(
+        select(BundleFile).where(BundleFile.bundle_id == bundle_id)
     ).all()
 
     bundles.append(bundle)
     files.extend(child_files)
-    file_bundles.extend(child_file_bundles)
+    bundle_files.extend(child_bundle_files)
 
     for child_bundle in child_bundles:
-        nested_files, nested_bundles, nested_file_bundles = load_bundle(bundle_id=child_bundle.id, session=session)
+        nested_files, nested_bundles, nested_bundle_files = load_bundle(bundle_id=child_bundle.id, session=session)
         files.extend(nested_files)
         bundles.extend(nested_bundles)
-        file_bundles.extend(nested_file_bundles)
+        bundle_files.extend(nested_bundle_files)
         
-    return files, bundles, file_bundles
+    return files, bundles, bundle_files
 
 
 def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> None:
@@ -152,10 +152,10 @@ def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> N
         raise ValueError("Bundle not found")
     output_dir = parent_dir / bundle.name
     output_dir.mkdir()
-    file_bundles = session.scalars(select(FileBundle).where(FileBundle.bundle_id == bundle_id)).all()
-    for file_bundle in file_bundles:
-        storage_file_path = STORAGE_PATH / file_bundle.file_id
-        destination_file_path = output_dir / file_bundle.file_name
+    bundle_files = session.scalars(select(BundleFile).where(BundleFile.bundle_id == bundle_id)).all()
+    for bundle_file in bundle_files:
+        storage_file_path = STORAGE_PATH / bundle_file.file_id
+        destination_file_path = output_dir / bundle_file.file_name
         shutil.copy(src=str(storage_file_path), dst=str(destination_file_path))
     child_bundles = session.scalars(
         select(Bundle).where(Bundle.parent_id == bundle_id)
@@ -167,7 +167,7 @@ def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> N
 
 def main(insert_bundle: str = None, load_bundle_id: str = None, retrieve_bundle_id: str = None):
     if insert_bundle:
-        files, bundles, file_bundles, file_path_dict = build_bundle(
+        files, bundles, bundle_files, file_path_dict = build_bundle(
             bundle_path=Path(insert_bundle),
             parent_id=None
         )
@@ -175,7 +175,7 @@ def main(insert_bundle: str = None, load_bundle_id: str = None, retrieve_bundle_
 
         tabulate_objects(objects=files, max_width=20)
         tabulate_objects(objects=bundles, max_width=20)
-        tabulate_objects(objects=file_bundles, max_width=20)
+        tabulate_objects(objects=bundle_files, max_width=20)
 
         if input("Copy to terminal? (y/n): ").lower() == "y":
             db_inserted_folder_path = TERMINAL_PATH / "db_inserted"
@@ -192,16 +192,16 @@ def main(insert_bundle: str = None, load_bundle_id: str = None, retrieve_bundle_
                 with session.begin():
                     session.add_all(files)
                     session.add_all(bundles)
-                    session.add_all(file_bundles)
+                    session.add_all(bundle_files)
             print("All objects added to database!")
 
 
     if load_bundle_id:
         with Session() as session:
-            files, bundles, file_bundles = load_bundle(bundle_id=load_bundle_id, session=session)
+            files, bundles, bundle_files = load_bundle(bundle_id=load_bundle_id, session=session)
             pprint(files)
             pprint(bundles)
-            pprint(file_bundles)
+            pprint(bundle_files)
 
     if retrieve_bundle_id:
         with Session() as session:

@@ -30,17 +30,18 @@ class Bundle(Base):
     )
 
 
-class FileBundle(Base):
-    __tablename__ = "file_bundles"
+class BundleFile(Base):
+    __tablename__ = "bundle_files"
+
+    bundle_id: Mapped[str] = mapped_column(
+        TEXT,
+        ForeignKey("bundles.id"),
+        primary_key=True,
+    )
 
     file_id: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey("files.id"),
-        primary_key=True,
-    )
-    bundle_id: Mapped[str] = mapped_column(
-        TEXT,
-        ForeignKey("bundles.id"),
         primary_key=True,
     )
     file_name: Mapped[str] = mapped_column(TEXT, nullable=False)
