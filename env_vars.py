@@ -11,3 +11,4 @@ def get_required_env(name: str) -> str:
 
 DATABASE_PATH_STR = get_required_env("DATABASE_PATH_STR")
 TERMINAL_PATH_STR = get_required_env("TERMINAL_PATH_STR")
+STORAGE_PATH_STR = get_required_env("STORAGE_PATH_STR")

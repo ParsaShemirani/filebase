@@ -64,12 +64,13 @@ def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundl
     )
 
 def build_bundle(bundle_path: Path, parent_id: str | None):
-    bundle = create_bundle(bundle_path=bundle_path, parent_id=parent_id)
-
     files: list[File] = []
     bundles: list[Bundle] = [bundle]
     file_bundles: list[FileBundle] = []
     file_path_dict: dict[str, Path] = {}
+
+    bundle = create_bundle(bundle_path=bundle_path, parent_id=parent_id)
+    bundles.append(bundle)
 
     for child_path in bundle_path.iterdir():
         if should_ignore_path(path=child_path):
@@ -104,6 +105,8 @@ def tabulate_objects(objects: list[object], max_width: int) -> None:
             maxcolwidths=max_width
         )
     )
+
+
 
 def main(bundle_str: str = None):
     if bundle_str:
