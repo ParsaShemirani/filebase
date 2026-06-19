@@ -3,18 +3,23 @@ import uuid
 from datetime import datetime, timezone
 from dataclasses import asdict
 import shutil
+from pprint import pprint
 
 from tabulate import tabulate
 import typer
-from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR
+from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
 from models import File, Bundle, FileBundle
 from connection import Session
 from hashlib import file_digest
+from sqlalchemy import select
+from sqlalchemy.orm import Session as SessionType
+
 
 
 IGNORED_NAMES = {".DS_Store"}
 
 TERMINAL_PATH = Path(TERMINAL_PATH_STR)
+STORAGE_PATH = Path(STORAGE_PATH_STR)
 
 def should_ignore_path(path: Path) -> bool:
     return path.name in IGNORED_NAMES
@@ -65,7 +70,7 @@ def create_file_bundle(file: File, bundle: Bundle, file_path: Path) -> FileBundl
 
 def build_bundle(bundle_path: Path, parent_id: str | None):
     files: list[File] = []
-    bundles: list[Bundle] = [bundle]
+    bundles: list[Bundle] = []
     file_bundles: list[FileBundle] = []
     file_path_dict: dict[str, Path] = {}
 
@@ -106,12 +111,64 @@ def tabulate_objects(objects: list[object], max_width: int) -> None:
         )
     )
 
+def load_bundle(bundle_id: str, session: SessionType):
+    files: list[File] = []
+    bundles: list[Bundle] = []
+    file_bundles: list[FileBundle] = []
 
 
-def main(bundle_str: str = None):
-    if bundle_str:
+    bundle = session.scalar(select(Bundle).where(Bundle.id == bundle_id))
+    if bundle is None:
+        raise ValueError("Bundle not found")
+    child_bundles = session.scalars(
+        select(Bundle).where(Bundle.parent_id == bundle_id)
+    ).all()
+    child_files = session.scalars(
+        select(File)
+        .join(FileBundle, File.id == FileBundle.file_id)
+        .where(FileBundle.bundle_id == bundle_id)
+    ).all()
+
+    child_file_bundles = session.scalars(
+        select(FileBundle).where(FileBundle.bundle_id == bundle_id)
+    ).all()
+
+    bundles.append(bundle)
+    files.extend(child_files)
+    file_bundles.extend(child_file_bundles)
+
+    for child_bundle in child_bundles:
+        nested_files, nested_bundles, nested_file_bundles = load_bundle(bundle_id=child_bundle.id, session=session)
+        files.extend(nested_files)
+        bundles.extend(nested_bundles)
+        file_bundles.extend(nested_file_bundles)
+        
+    return files, bundles, file_bundles
+
+
+def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> None:
+    bundle = session.scalar(select(Bundle).where(Bundle.id == bundle_id))
+    if bundle is None:
+        raise ValueError("Bundle not found")
+    output_dir = parent_dir / bundle.name
+    output_dir.mkdir()
+    file_bundles = session.scalars(select(FileBundle).where(FileBundle.bundle_id == bundle_id)).all()
+    for file_bundle in file_bundles:
+        storage_file_path = STORAGE_PATH / file_bundle.file_id
+        destination_file_path = output_dir / file_bundle.file_name
+        shutil.copy(src=str(storage_file_path), dst=str(destination_file_path))
+    child_bundles = session.scalars(
+        select(Bundle).where(Bundle.parent_id == bundle_id)
+    ).all()
+
+    for child_bundle in child_bundles:
+        retrieve_bundle(bundle_id=child_bundle.id, parent_dir=output_dir, session=session)
+
+
+def main(insert_bundle: str = None, load_bundle_id: str = None, retrieve_bundle_id: str = None):
+    if insert_bundle:
         files, bundles, file_bundles, file_path_dict = build_bundle(
-            bundle_path=Path(bundle_str),
+            bundle_path=Path(insert_bundle),
             parent_id=None
         )
         file_ids = [f.id for f in files]
@@ -120,7 +177,7 @@ def main(bundle_str: str = None):
         tabulate_objects(objects=bundles, max_width=20)
         tabulate_objects(objects=file_bundles, max_width=20)
 
-        if input("Copy to terminal? (y/n)").lower() == "y":
+        if input("Copy to terminal? (y/n): ").lower() == "y":
             db_inserted_folder_path = TERMINAL_PATH / "db_inserted"
             db_inserted_folder_path.mkdir(exist_ok=False)
             for file_id in file_ids:
@@ -138,6 +195,17 @@ def main(bundle_str: str = None):
                     session.add_all(file_bundles)
             print("All objects added to database!")
 
+
+    if load_bundle_id:
+        with Session() as session:
+            files, bundles, file_bundles = load_bundle(bundle_id=load_bundle_id, session=session)
+            pprint(files)
+            pprint(bundles)
+            pprint(file_bundles)
+
+    if retrieve_bundle_id:
+        with Session() as session:
+            retrieve_bundle(bundle_id=retrieve_bundle_id, parent_dir=TERMINAL_PATH, session=session)
 
         
 
