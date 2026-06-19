@@ -10,11 +10,10 @@ class Base(MappedAsDataclass, DeclarativeBase):
 class File(Base):
     __tablename__ = "files"
 
-    id: Mapped[str] = mapped_column(TEXT, primary_key=True)
-    sha256_hash: Mapped[str] = mapped_column(TEXT, nullable=False, unique=True)
+    sha256_hash: Mapped[str] = mapped_column(TEXT, primary_key=True)
     extension: Mapped[str] = mapped_column(TEXT, nullable=False)
+    fs_created_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
     inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
-    created_ts: Mapped[str | None] = mapped_column(TEXT)
 
 
 class Bundle(Base):
@@ -39,9 +38,9 @@ class BundleFile(Base):
         primary_key=True,
     )
 
-    file_id: Mapped[str] = mapped_column(
+    file_sha256_hash: Mapped[str] = mapped_column(
         TEXT,
-        ForeignKey("files.id"),
+        ForeignKey("files.sha256_hash"),
         primary_key=True,
     )
     file_name: Mapped[str] = mapped_column(TEXT, nullable=False)

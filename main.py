@@ -45,11 +45,10 @@ def generate_sha256_hash(file_path: Path) -> str:
 
 def create_file(file_path: Path) -> File:
     return File(
-        id=str(uuid.uuid4()),
         sha256_hash=generate_sha256_hash(file_path=file_path),
         extension=file_path.suffix.lstrip(".").lower(),
-        inserted_ts=get_current_time_str(),
-        created_ts=get_file_modified_time_str(file_path=file_path)
+        fs_created_ts=get_file_modified_time_str(file_path=file_path),
+        inserted_ts=get_current_time_str,
     )
 
 def create_bundle(bundle_path: Path, parent_id: str | None) -> Bundle:

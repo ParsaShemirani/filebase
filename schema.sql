@@ -1,11 +1,10 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE files (
-    id TEXT PRIMARY KEY,
-    sha256_hash TEXT NOT NULL UNIQUE,
+    sha256_hash TEXT PRIMARY KEY,
     extension TEXT NOT NULL,
-    inserted_ts TEXT NOT NULL,
-    created_ts TEXT
+    fs_created_ts TEXT NOT NULL,
+    inserted_ts TEXT NOT NULL
 );
 
 CREATE TABLE bundles (
@@ -18,12 +17,12 @@ CREATE TABLE bundles (
 
 CREATE TABLE bundle_files (
     bundle_id TEXT NOT NULL,
-    file_id TEXT NOT NULL,
+    file_sha256_hash TEXT NOT NULL,
     file_name TEXT NOT NULL,
     inserted_ts TEXT NOT NULL,
 
-    PRIMARY KEY (bundle_id, file_id),
+    PRIMARY KEY (bundle_id, file_sha256_hash),
 
     FOREIGN KEY (bundle_id) REFERENCES bundles(id),
-    FOREIGN KEY (file_id) REFERENCES files(id)
+    FOREIGN KEY (file_sha256_hash) REFERENCES files(sha256_hash)
 );
