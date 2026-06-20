@@ -26,3 +26,19 @@ CREATE TABLE bundle_files (
     FOREIGN KEY (bundle_id) REFERENCES bundles(id),
     FOREIGN KEY (file_sha256_hash) REFERENCES files(sha256_hash)
 );
+
+CREATE TABLE collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    inserted_ts TEXT NOT NULL
+);
+
+CREATE TABLE collection_files (
+    collection_id TEXT NOT NULL,
+    file_sha256_hash TEXT NOT NULL,
+    inserted_ts TEXT NOT NULL,
+    PRIMARY KEY (collection_id, file_sha256_hash),
+
+    FOREIGN KEY (collection_id) REFERENCES collections(id),
+    FOREIGN KEY (file_sha256_hash) REFERENCES files(sha256_hash)
+)
