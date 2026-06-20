@@ -11,7 +11,7 @@ import typer
 from tabulate import tabulate
 
 from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
-from models import File, Bundle, BundleFile
+from models import File, Bundle, BundleFile, Collection, CollectionFile
 from connection import Session
 
 
@@ -26,7 +26,7 @@ def should_ignore_path(path: Path) -> bool:
 
 def get_fs_created_time(file_path: Path) -> datetime:
     modified_ts = file_path.stat().st_mtime
-    return datetime.fromtimestamp(modified_ts, tz=timezone.utc)
+    return datetime.fromtimestamp(timestamp=modified_ts, tz=timezone.utc)
 
 def generate_sha256_hash(file_path: Path) -> str:
     with file_path.open("rb") as f:
@@ -37,14 +37,14 @@ def create_file(file_path: Path) -> File:
         sha256_hash=generate_sha256_hash(file_path=file_path),
         extension=file_path.suffix.lstrip(".").lower(),
         fs_created_ts=get_fs_created_time(file_path=file_path).isoformat(),
-        inserted_ts=datetime.now(timezone.utc).isoformat()
+        inserted_ts=datetime.now(tz=timezone.utc).isoformat()
     )
 
 def create_bundle(directory_path: Path, parent_id: str | None) -> Bundle:
     return Bundle(
         id=str(uuid.uuid4()),
         name=directory_path.name,
-        inserted_ts=datetime.now(timezone.utc).isoformat(),
+        inserted_ts=datetime.now(tz=timezone.utc).isoformat(),
         parent_id=parent_id,
     )
 
@@ -53,7 +53,7 @@ def create_bundle_file(bundle: Bundle, file: File, file_path: Path) -> BundleFil
         bundle_id=bundle.id,
         file_sha256_hash=file.sha256_hash,
         file_name=file_path.name,
-        inserted_ts=datetime.now(timezone.utc).isoformat(),
+        inserted_ts=datetime.now(tz=timezone.utc).isoformat(),
     )
 
 def build_bundle(directory_path: Path, parent_id: str | None) -> tuple[list[File], list[Bundle], list[BundleFile], dict[str, Path]]:
@@ -104,7 +104,12 @@ def _retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> 
     for child_bundle in child_bundles:
         _retrieve_bundle(bundle_id=child_bundle.id, parent_dir=output_dir, session=session)
 
-
+def create_collection_file(collection: Collection, file: File) -> CollectionFile:
+    return CollectionFile(
+        collection_id=collection.id,
+        file_sha256_hash=file.sha256_hash,
+        inserted_ts=datetime.now(tz=timezone.utc).isoformat()
+    )
 
 ## TYPER CLI
 
@@ -147,6 +152,36 @@ def retrieve_bundle(bundle_id: str):
     with Session() as session:
         _retrieve_bundle(bundle_id=bundle_id, parent_dir=TERMINAL_PATH, session=session)
     print(f"Bundle retrieved to {TERMINAL_PATH}")
+
+@app.command()
+def extend_collection(collection_id: str, directory_path_str: str):
+    directory_path = Path(directory_path_str)
+    with Session() as session:
+        with session.begin():
+            collection = session.scalar(select(Collection).where(Collection.id == collection_id))
+            if collection is None:
+                raise ValueError(f"Collection id {collection_id} not found")
+
+            files: list[File] = []
+            collection_files: list[CollectionFile] = []
+            for file_path in directory_path.iterdir():
+                file = create_file(file_path=file_path)
+                collection_file = create_collection_file(
+                    collection=collection,
+                    file=file
+                )
+                files.append(file)
+                collection_files.append(collection_file)
+
+            tabulate_objects(files, max_width=20)
+            tabulate_objects(collection_files, max_width=20)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     app()
