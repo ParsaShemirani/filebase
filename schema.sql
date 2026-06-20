@@ -41,4 +41,4 @@ CREATE TABLE collection_files (
 
     FOREIGN KEY (collection_id) REFERENCES collections(id),
     FOREIGN KEY (file_sha256_hash) REFERENCES files(sha256_hash)
-)
+);
