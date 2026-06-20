@@ -85,7 +85,7 @@ def build_bundle(directory_path: Path, parent_id: str | None) -> tuple[list[File
     
     return files, bundles, bundle_files, file_path_dict
 
-def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> None:
+def _retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> None:
     bundle = session.scalar(select(Bundle).where(Bundle.id == bundle_id))
     if bundle is None:
         raise ValueError(f"Bundle id {bundle_id} not found")
@@ -102,7 +102,7 @@ def retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> N
     
     child_bundles = session.scalars(select(Bundle).where(Bundle.parent_id == bundle_id)).all()
     for child_bundle in child_bundles:
-        retrieve_bundle(bundle_id=child_bundle.id, parent_dir=output_dir, session=Session)
+        _retrieve_bundle(bundle_id=child_bundle.id, parent_dir=output_dir, session=session)
 
 
 
@@ -118,7 +118,7 @@ def tabulate_objects(objects: list[object], max_width: int) -> None:
 app = typer.Typer()
 
 @app.command()
-def xinsert_bundle(directory_path_str: str):
+def insert_bundle(directory_path_str: str):
     files, bundles, bundle_files, file_path_dict = build_bundle(directory_path=Path(directory_path_str), parent_id=None)
 
     tabulate_objects(objects=files, max_width=20)
@@ -143,9 +143,10 @@ def xinsert_bundle(directory_path_str: str):
 
 
 @app.command()
-def xretrieve_bundle(bundle_id: str):
+def retrieve_bundle(bundle_id: str):
     with Session() as session:
-        retrieve_bundle(bundle_id=bundle_id, parent_dir=TERMINAL_PATH, session=session)
+        _retrieve_bundle(bundle_id=bundle_id, parent_dir=TERMINAL_PATH, session=session)
+    print(f"Bundle retrieved to {TERMINAL_PATH}")
 
 if __name__ == "__main__":
     app()
