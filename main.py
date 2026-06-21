@@ -130,7 +130,7 @@ def insert_bundle(directory_path_str: str):
     tabulate_objects(objects=bundles, max_width=20)
     tabulate_objects(objects=bundle_files, max_width=20)
 
-    if input("Copy to terminal? (y/n): ") == "y":
+    if input("Copy files to terminal? (y/n): ") == "y":
         db_inserted_path = TERMINAL_PATH / "db_inserted"
         db_inserted_path.mkdir()
         for file in files:
@@ -164,6 +164,7 @@ def extend_collection(collection_id: str, directory_path_str: str):
 
             files: list[File] = []
             collection_files: list[CollectionFile] = []
+            file_path_dict: dict[str, Path] = {}
             for file_path in directory_path.iterdir():
                 file = create_file(file_path=file_path)
                 collection_file = create_collection_file(
@@ -172,9 +173,26 @@ def extend_collection(collection_id: str, directory_path_str: str):
                 )
                 files.append(file)
                 collection_files.append(collection_file)
+                file_path_dict[file.sha256_hash] = file_path
 
             tabulate_objects(files, max_width=20)
             tabulate_objects(collection_files, max_width=20)
+
+            if input("Copy files to terminal? (y/n): ") == "y":
+                db_inserted_path = TERMINAL_PATH / "db_inserted"
+                db_inserted_path.mkdir()
+                for file in files:
+                    shutil.copy(src=str(file_path_dict[file.sha256_hash]), dst=str(db_inserted_path / file.sha256_hash))
+                print(f"All files copied to {str(db_inserted_path)}")
+            
+            print(f"Database path: {DATABASE_PATH_STR}")
+            if input(f"Insert into database? (y/n): ") == "y":
+                session.add_all(files)
+                session.add_all(collection_files)
+            print("All objects added to database")
+                
+
+
 
 
 
