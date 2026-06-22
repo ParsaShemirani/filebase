@@ -124,13 +124,10 @@ def _retrieve_bundle(bundle_id: str, parent_dir: Path, session: SessionType) -> 
         )
 
 
-def create_collection_file(
-    collection: Collection, file: File, file_path: Path
-) -> CollectionFile:
+def create_collection_file(collection: Collection, file: File) -> CollectionFile:
     return CollectionFile(
         collection_id=collection.id,
         file_sha256_hash=file.sha256_hash,
-        file_name=file_path.name,
         inserted_ts=datetime.now(tz=timezone.utc).isoformat(),
     )
 
@@ -210,9 +207,7 @@ def extend_collection(collection_id: str, directory_path_str: str):
             for file_path in directory_path.iterdir():
                 file = create_file(file_path=file_path)
                 collection_file = create_collection_file(
-                    collection=collection,
-                    file=file,
-                    file_path=file_path,
+                    collection=collection, file=file
                 )
                 files.append(file)
                 collection_files.append(collection_file)
@@ -254,8 +249,9 @@ def retrieve_collection(collection_id: str):
             select(CollectionFile).where(CollectionFile.collection_id == collection_id)
         ).all()
         for collection_file in collection_files:
-            storage_file_path = STORAGE_PATH / collection_file.file_sha256_hash
-            destination_file_path = output_dir / collection_file.file_name
+            file = session.scalar(select(File).where(File.sha256_hash == collection_file.file_sha256_hash))
+            storage_file_path = STORAGE_PATH / file.sha256_hash
+            destination_file_path = output_dir / f"{file.sha256_hash}.{file.extension}"
             shutil.copy(src=str(storage_file_path), dst=str(destination_file_path))
         print(f"Collection retrieved to {TERMINAL_PATH_STR}")
 

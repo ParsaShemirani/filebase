@@ -36,7 +36,6 @@ CREATE TABLE collections (
 CREATE TABLE collection_files (
     collection_id TEXT NOT NULL,
     file_sha256_hash TEXT NOT NULL,
-    file_name TEXT NOT NULL,
     inserted_ts TEXT NOT NULL,
     PRIMARY KEY (collection_id, file_sha256_hash),
 

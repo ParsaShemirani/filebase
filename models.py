@@ -63,5 +63,4 @@ class CollectionFile(Base):
     file_sha256_hash: Mapped[str] = mapped_column(
         TEXT, ForeignKey("files.sha256_hash"), primary_key=True
     )
-    file_name: Mapped[str] = mapped_column(TEXT, nullable=False)
     inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
