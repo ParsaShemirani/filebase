@@ -37,11 +37,30 @@ class BundleFile(Base):
         ForeignKey("bundles.id"),
         primary_key=True,
     )
-
     file_sha256_hash: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey("files.sha256_hash"),
         primary_key=True,
     )
     file_name: Mapped[str] = mapped_column(TEXT, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id: Mapped[str] = mapped_column(TEXT, primary_key=True)
+    name: Mapped[str] = mapped_column(TEXT, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+
+class CollectionFile(Base):
+    __tablename__ = "collection_files"
+
+    collection_id: Mapped[str] = mapped_column(
+        TEXT, ForeignKey("collections.id"), primary_key=True
+    )
+    file_sha256_hash: Mapped[str] = mapped_column(
+        TEXT, ForeignKey("files.sha256_hash"), primary_key=True
+    )
     inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
