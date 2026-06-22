@@ -192,6 +192,20 @@ def extend_collection(collection_id: str, directory_path_str: str):
             print("All objects added to database")
                 
 
+def retrieve_collection(collection_id: str):
+    with Session() as session:
+        collection = session.scalar(select(Collection).where(Collection.id == collection_id))
+        if collection is None:
+            raise ValueError(f"Collection id {collection_id} not found")
+        
+        output_dir = TERMINAL_PATH / collection.name
+        output_dir.mkdir()
+
+        collection_files = session.scalars(select(CollectionFile).where(CollectionFile.collection_id == collection_id)).all()
+        for collection_file in collection_files:
+            storage_file_path = STORAGE_PATH / collection_file.file_sha256_hash
+            destination_file_path = output_dir / collection_file.file_sha256_hash
+
 
 
 
