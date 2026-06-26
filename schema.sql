@@ -8,7 +8,6 @@ CREATE TABLE files (
     inserted_ts TEXT NOT NULL, 
     
     name TEXT,
-    description TEXT,
     other_json TEXT
 );
 
@@ -16,8 +15,7 @@ CREATE TABLE files (
 CREATE TABLE bundles (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    inserted_ts TEXT NOT NULL,
-    description TEXT
+    inserted_ts TEXT NOT NULL
 );
 
 CREATE TABLE bundle_files (
