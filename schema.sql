@@ -2,13 +2,11 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE files (
     sha256_hash TEXT PRIMARY KEY,
-    size_bytes INTEGER NOT NULL,
     extension TEXT NOT NULL,
     stats_json TEXT NOT NULL,
     inserted_ts TEXT NOT NULL, 
     
-    name TEXT,
-    other_json TEXT
+    name TEXT
 );
 
 
