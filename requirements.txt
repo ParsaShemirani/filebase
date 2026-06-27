@@ -2,5 +2,7 @@ SQLAlchemy
 python-dotenv
 typer
 tabulate
+PySide6
+textual
 
 ruff
