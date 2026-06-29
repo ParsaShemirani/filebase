@@ -24,7 +24,7 @@ class Directory(Base):
         Text, ForeignKey("directories.id"), nullable=True
     )
 
-    __table_args__ = UniqueConstraint("parent_id", "name")
+    __table_args__ = (UniqueConstraint("parent_id", "name"),)
 
 
 class DirectoryFile(Base):
