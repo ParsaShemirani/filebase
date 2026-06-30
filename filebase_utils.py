@@ -1,18 +1,28 @@
 from __future__ import annotations
 
+import os
+import sqlite3
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
+from sqlalchemy import create_engine
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as SessionType
+from sqlalchemy.orm import sessionmaker
 
-from connection import Session
+from env_vars import DATABASE_PATH_STR
 from models import Directory, DirectoryFile, File
 
 
 ROOT_ID = "root"
+ORIGINAL_DATABASE_PATH = Path(DATABASE_PATH_STR).expanduser()
+_active_database_path = ORIGINAL_DATABASE_PATH
+_engine = create_engine("sqlite:///" + str(_active_database_path), echo=False)
+Session = sessionmaker(bind=_engine)
 
 
 @dataclass(frozen=True)
@@ -27,6 +37,41 @@ class BrowserItem:
 
 def utc_now_str() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
+
+
+def get_active_database_path() -> Path:
+    return _active_database_path
+
+
+def get_original_database_path() -> Path:
+    return ORIGINAL_DATABASE_PATH
+
+
+def use_database(database_path: Path) -> None:
+    global Session, _active_database_path, _engine
+
+    _engine.dispose()
+    _active_database_path = database_path.expanduser()
+    _engine = create_engine("sqlite:///" + str(_active_database_path), echo=False)
+    Session = sessionmaker(bind=_engine)
+
+
+def clone_database(source_path: Path | None = None) -> Path:
+    source_path = source_path or ORIGINAL_DATABASE_PATH
+    fd, temp_path_str = tempfile.mkstemp(prefix="filebase-edit-", suffix=".db")
+    os.close(fd)
+    temp_path = Path(temp_path_str)
+
+    with sqlite3.connect(f"file:{source_path}?mode=ro", uri=True) as source:
+        with sqlite3.connect(temp_path) as destination:
+            source.backup(destination)
+    return temp_path
+
+
+def replace_database(replacement_path: Path, destination_path: Path | None = None) -> None:
+    destination_path = destination_path or ORIGINAL_DATABASE_PATH
+    _engine.dispose()
+    os.replace(replacement_path, destination_path)
 
 
 def normalize_directory_id(directory_id: str | None) -> str | None:
@@ -214,6 +259,24 @@ def move_item(item: BrowserItem, destination_id: str | None) -> None:
                 return
 
     raise ValueError("Unknown item type.")
+
+
+def move_items(items: list[BrowserItem], destination_id: str | None) -> None:
+    destination_id = normalize_directory_id(destination_id)
+    with Session() as session:
+        with session.begin():
+            if destination_id is not None:
+                require_directory(session, destination_id)
+
+            for item in items:
+                if item.kind == "directory":
+                    move_directory(session, item.id, destination_id)
+                elif item.kind == "file":
+                    if item.parent_id is None or destination_id is None:
+                        raise ValueError("Files can only move between real directories.")
+                    move_file(session, item.parent_id, item.id, destination_id)
+                else:
+                    raise ValueError("Unknown item type.")
 
 
 def require_directory(session: SessionType, directory_id: str) -> Directory:

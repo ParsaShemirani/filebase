@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -9,14 +10,18 @@ from textual.widgets import DataTable, Footer, Header, Input, Static
 
 from filebase_utils import (
     BrowserItem,
+    clone_database,
     create_directory,
     friendly_error,
     get_item_details,
+    get_original_database_path,
     get_parent_id,
     get_path,
     list_items,
-    move_item,
+    move_items,
+    replace_database,
     rename_item,
+    use_database,
 )
 
 
@@ -34,9 +39,13 @@ class FilebaseTui(App):
         ("h", "parent", "Parent"),
         ("l", "enter", "Enter"),
         ("enter", "enter", "Enter"),
+        ("e", "edit", "Edit copy"),
+        ("w", "write_database", "Write DB"),
+        ("u", "discard_edits", "Discard"),
+        ("space", "toggle_select", "Select"),
         ("n", "new_directory", "New dir"),
         ("r", "rename", "Rename"),
-        ("m", "mark_move", "Mark move"),
+        ("d", "cut", "Cut"),
         ("p", "paste", "Paste"),
         ("escape", "cancel_prompt", "Cancel"),
     ]
@@ -54,8 +63,12 @@ class FilebaseTui(App):
         super().__init__()
         self.current_id: str | None = None
         self.rows: list[BrowserItem] = []
-        self.marked_item: BrowserItem | None = None
+        self.selected_items: set[BrowserItem] = set()
+        self.selected_source_id: str | None = None
+        self.cut_items: list[BrowserItem] = []
+        self.cut_source_id: str | None = None
         self.prompt_state: PromptState | None = None
+        self.working_database_path: Path | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -96,11 +109,18 @@ class FilebaseTui(App):
     def input(self) -> Input:
         return self.query_one("#input", Input)
 
-    def refresh_view(self, message: str | None = None) -> None:
-        parent_id = get_parent_id(self.current_id)
-        self.fill_table(self.left, list_items(parent_id), self.current_id)
+    def refresh_view(
+        self, message: str | None = None, cursor_row: int | None = None
+    ) -> None:
+        if self.current_id is None:
+            self.left.clear(columns=False)
+        else:
+            parent_id = get_parent_id(self.current_id)
+            self.fill_table(self.left, list_items(parent_id), self.current_id)
         self.rows = list_items(self.current_id)
         self.fill_table(self.middle, self.rows)
+        if cursor_row is not None and self.rows:
+            self.middle.move_cursor(row=min(cursor_row, len(self.rows) - 1))
         self.refresh_preview()
         self.update_status(message)
 
@@ -115,6 +135,8 @@ class FilebaseTui(App):
             name = item.name
             if item.id == selected_id:
                 name = f"> {name}"
+            if table is self.middle and item in self.selected_items:
+                name = f"* {name}"
             table.add_row(self.icon(item), name)
 
     def refresh_preview(self) -> None:
@@ -133,10 +155,25 @@ class FilebaseTui(App):
             self.right.add_row(key, value)
 
     def update_status(self, message: str | None = None) -> None:
-        marked = ""
-        if self.marked_item is not None:
-            marked = f" | moving {self.marked_item.kind}: {self.marked_item.name}"
-        self.status.update(f"{get_path(self.current_id)}{marked} | {message or ''}")
+        moving = ""
+        if self.cut_items:
+            moving = f" | cut: {len(self.cut_items)}"
+        elif self.selected_items:
+            moving = f" | selected: {len(self.selected_items)}"
+        mode = "EDIT" if self.is_editing else "VIEW"
+        self.status.update(
+            f"{mode} | {get_path(self.current_id)}{moving} | {message or ''}"
+        )
+
+    @property
+    def is_editing(self) -> bool:
+        return self.working_database_path is not None
+
+    def require_editing(self) -> bool:
+        if self.is_editing:
+            return True
+        self.update_status("Press e to edit a temporary copy first")
+        return False
 
     def selected_item(self) -> BrowserItem | None:
         row = self.middle.cursor_row
@@ -157,39 +194,132 @@ class FilebaseTui(App):
 
     def action_parent(self) -> None:
         self.current_id = get_parent_id(self.current_id)
+        self.clear_selection()
         self.refresh_view()
 
     def action_enter(self) -> None:
+        self.enter_selected_directory()
+
+    def enter_selected_directory(self) -> None:
         item = self.selected_item()
         if item is not None and item.kind == "directory":
             self.current_id = item.id
+            self.clear_selection()
             self.refresh_view()
 
     def action_new_directory(self) -> None:
+        if not self.require_editing():
+            return
         self.start_prompt("new_directory", "New directory name")
 
     def action_rename(self) -> None:
+        if not self.require_editing():
+            return
         item = self.selected_item()
         if item is not None:
             self.start_prompt("rename", "New name", item)
 
-    def action_mark_move(self) -> None:
+    def action_toggle_select(self) -> None:
+        if not self.require_editing():
+            return
+        row = self.middle.cursor_row
         item = self.selected_item()
-        if item is not None:
-            self.marked_item = item
-            self.update_status("Marked for move")
+        if item is None:
+            return
+        if self.selected_source_id not in (None, self.current_id):
+            self.update_status("Selection must come from one directory")
+            return
+
+        self.selected_source_id = self.current_id
+        if item in self.selected_items:
+            self.selected_items.remove(item)
+            if not self.selected_items:
+                self.selected_source_id = None
+        else:
+            self.selected_items.add(item)
+        self.refresh_view(cursor_row=row + 1)
+
+    def action_cut(self) -> None:
+        if not self.require_editing():
+            return
+        if not self.selected_items:
+            return
+        self.cut_items = list(self.selected_items)
+        self.cut_source_id = self.selected_source_id
+        self.selected_items.clear()
+        self.selected_source_id = None
+        self.refresh_view(f"Cut {len(self.cut_items)} item(s)")
 
     def action_paste(self) -> None:
-        if self.marked_item is None:
-            self.update_status("Nothing is marked")
+        if not self.require_editing():
+            return
+        if not self.cut_items:
+            self.update_status("Nothing is cut")
             return
         try:
-            move_item(self.marked_item, self.current_id)
+            move_items(self.cut_items, self.current_id)
         except Exception as error:
             self.update_status(friendly_error(error))
             return
-        self.marked_item = None
-        self.refresh_view("Moved")
+        moved_count = len(self.cut_items)
+        self.cut_items = []
+        self.cut_source_id = None
+        self.refresh_view(f"Moved {moved_count} item(s)")
+
+    def action_edit(self) -> None:
+        if self.is_editing:
+            self.update_status("Already editing a copy")
+            return
+        try:
+            self.working_database_path = clone_database()
+            use_database(self.working_database_path)
+        except Exception as error:
+            self.working_database_path = None
+            self.update_status(friendly_error(error))
+            return
+        self.current_id = None
+        self.clear_selection()
+        self.cut_items = []
+        self.cut_source_id = None
+        self.refresh_view("Editing temporary copy")
+
+    def action_write_database(self) -> None:
+        if self.working_database_path is None:
+            self.update_status("No edit copy to write")
+            return
+        try:
+            replace_database(self.working_database_path)
+        except Exception as error:
+            use_database(self.working_database_path)
+            self.update_status(friendly_error(error))
+            return
+        use_database(get_original_database_path())
+        self.working_database_path = None
+        self.current_id = None
+        self.clear_selection()
+        self.cut_items = []
+        self.cut_source_id = None
+        self.refresh_view("Wrote database")
+
+    def action_discard_edits(self) -> None:
+        if self.working_database_path is None:
+            self.update_status("No edit copy to discard")
+            return
+        temp_path = self.working_database_path
+        use_database(get_original_database_path())
+        temp_path.unlink(missing_ok=True)
+        self.working_database_path = None
+        self.current_id = None
+        self.clear_selection()
+        self.cut_items = []
+        self.cut_source_id = None
+        self.refresh_view("Discarded edit copy")
+
+    def action_quit(self) -> None:
+        if self.is_editing:
+            self.update_status("Write with w or discard with u before quitting")
+            return
+        self.exit()
 
     def start_prompt(
         self, mode: str, placeholder: str, item: BrowserItem | None = None
@@ -233,6 +363,14 @@ class FilebaseTui(App):
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.data_table is self.middle:
             self.refresh_preview()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table is self.middle:
+            self.enter_selected_directory()
+
+    def clear_selection(self) -> None:
+        self.selected_items.clear()
+        self.selected_source_id = None
 
 
 if __name__ == "__main__":
