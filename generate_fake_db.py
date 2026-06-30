@@ -19,6 +19,7 @@ from models import Base, Directory, DirectoryFile, File
 
 DEFAULT_OUTPUT_PATH = Path("fake_filebase.db")
 BASE_TIME = datetime(2026, 1, 1, tzinfo=timezone.utc)
+ROOT_DIRECTORY_ID = str(uuid.uuid4())
 
 ADJECTIVES = [
     "amber",
@@ -163,12 +164,20 @@ def build_fake_data(
 
 
 def make_directories(rng: random.Random, count: int) -> list[Directory]:
-    directories: list[Directory] = []
-    sibling_names: dict[str | None, set[str]] = {None: set()}
+    root = DirectoryFactory(
+        id=ROOT_DIRECTORY_ID,
+        name="/",
+        parent_id=None,
+    )
+    directories: list[Directory] = [root]
+    sibling_names: dict[str | None, set[str]] = {
+        None: {root.name},
+        root.id: set(),
+    }
 
-    for index in range(count):
-        parent_id = None
-        if directories and rng.random() > 0.35:
+    for index in range(count - 1):
+        parent_id = root.id
+        if len(directories) > 1 and rng.random() > 0.35:
             parent_id = rng.choice(directories).id
 
         name = unique_name(sibling_names.setdefault(parent_id, set()), handle(rng))
