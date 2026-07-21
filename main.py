@@ -39,27 +39,49 @@ class SiblingFilesViewer(DataTable):
             )
 
             for sibling_directory_file in sibling_directory_files:
-                self.add_row(sibling_directory_file.file_name, key=sibling_directory_file.file_name)
+                self.add_row(
+                    sibling_directory_file.file_name, key=sibling_directory_file.id
+                )
 
 
-class ChildrenViewer(DataTable):
-    BINDINGS = [("k", "cursor_up", "Cursor Up"), ("j", "cursor_down", "Cursor Down")]
+class SiblingDirectoriesViewer(DataTable):
+    can_focus = False
+    current_dir_id = reactive(None, init=False)
+
+    def on_mount(self):
+        self.cursor_type = "none"
+        self.add_columns("name")
+
+    def watch_current_dir_id(self, value):
+        if value is None:
+            return
+
+        with Session() as session:
+            sibling_files, sibling_directories, sibling_directory_files = (
+                get_directory_siblings(id=value, session=session)
+            )
+
+            for sibling_directory in sibling_directories:
+                self.add_row(sibling_directory.name, key=sibling_directory.id)
+
+
+class ChildFilesViewer(DataTable):
+    BINDINGS = [("k", "cursor_up", "Cursor Up"), ("j", "cursor_down", "Cursor Down"), ("space", "select_cursor", "Select Cursor")]
     current_dir_id = reactive(None)
-    selected_file_id = reactive(None)
-    selected_directory_id = reactive(None)
+    selected_directory_file_ids: reactive[list[str]] = reactive(list)
+    cut_directory_file_ids: reactive[list[str]] = reactive(list)
+    copied_directory_file_ids: reactive[list[str]] = reactive(list)
 
     def on_mount(self):
         self.cursor_type = "row"
-        self.add_columns("kind", "name")
+        self.add_columns("name")
 
-    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted):
-        if 
-        log("JIMMYJONESHIGHLIHGT")
-        log(f"{event}")
-        james = event.row_key
-        log(f"STUPID MAN {james.value}")
-        
-
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        directory_file_id = event.row_key.value
+        if directory_file_id in self.selected_directory_file_ids:
+            return
+        self.selected_directory_file_ids.append(directory_file_id)
+        self.mutate_reactive(ChildFilesViewer.selected_directory_file_ids)
 
     def watch_current_dir_id(self, value):
         if value is None:
@@ -70,15 +92,39 @@ class ChildrenViewer(DataTable):
                 get_directory_children(id=value, session=session)
             )
 
-        for child_directory in child_directories:
-            self.add_row("D", child_directory.name, key=child_directory.id)
+        for child_directory_file in child_directory_files:
+            self.add_row(child_directory_file.file_name, key=child_directory_file.id)
+
+
+class ChildDirectoriesViewer(DataTable):
+    BINDINGS = [("k", "cursor_up", "Cursor Up"), ("j", "cursor_down", "Cursor Down"), ("space", "select_cursor", "Select Cursor")]
+    current_dir_id = reactive(None)
+    selected_directory_ids: reactive[list[str]] = reactive(list)
+    cut_directory_ids: reactive[list[str]] = reactive(list)
+    copied_directory_ids: reactive[list[str]] = reactive(list)
+
+    def on_mount(self):
+        self.cursor_type = "row"
+        self.add_columns("name")
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        directory_id = event.row_key.value
+        if directory_id in self.selected_directory_ids:
+            return
+        self.selected_directory_ids.append(directory_id)
+        self.mutate_reactive(ChildFilesViewer.selected_directory_ids)
+
+    def watch_current_dir_id(self, value):
+        if value is None:
+            return
+
+        with Session() as session:
+            child_files, child_directories, child_directory_files = (
+                get_directory_children(id=value, session=session)
+            )
 
         for child_directory_file in child_directory_files:
-            self.add_row(
-                "F",
-                child_directory_file.file_name,
-                key=child_directory_file.file_name,
-            )
+            self.add_row(child_directory_file.file_name, key=child_directory_file.id)
 
 
 class FilebaseApp(App):
@@ -88,8 +134,6 @@ class FilebaseApp(App):
     ]
 
     current_dir_id = reactive(None)
-    selected_file_id = reactive(None)
-    selected_directory_id = reactive(None)
 
     def on_mount(self):
         with Session() as session:
@@ -98,12 +142,8 @@ class FilebaseApp(App):
 
     def compose(self) -> ComposeResult:
         yield Horizontal(
-            SiblingsViewer().data_bind(FilebaseApp.current_dir_id),
-            ChildrenViewer().data_bind(
-                FilebaseApp.current_dir_id,
-                FilebaseApp.selected_file_id,
-                FilebaseApp.selected_directory_id,
-            ),
+            SiblingDirectoriesViewer().data_bind(FilebaseApp.current_dir_id),
+            ChildFilesViewer().data_bind(FilebaseApp.current_dir_id),
         )
 
 
