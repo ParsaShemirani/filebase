@@ -21,13 +21,13 @@ right: selected viewer
 """
 
 
-class SiblingFilesViewer(DataTable):
+class SiblingsViewer(DataTable):
     can_focus = False
     current_dir_id = reactive(None, init=False)
 
     def on_mount(self):
         self.cursor_type = "none"
-        self.add_columns("name")
+        self.add_columns("kind", "name")
 
     def watch_current_dir_id(self, value):
         if value is None:
@@ -38,8 +38,15 @@ class SiblingFilesViewer(DataTable):
                 get_directory_siblings(id=value, session=session)
             )
 
+            for sibling_directory in sibling_directories:
+                self.add_row("D", sibling_directory.name, key=sibling_directory.id)
+
             for sibling_directory_file in sibling_directory_files:
-                self.add_row(sibling_directory_file.file_name, key=sibling_directory_file.file_name)
+                self.add_row(
+                    "F",
+                    sibling_directory_file.file_name,
+                    key=sibling_directory_file.file_name,
+                )
 
 
 class ChildrenViewer(DataTable):

@@ -90,6 +90,7 @@ class DirectoryFileFactory(factory.Factory):
     class Meta:
         model = DirectoryFile
 
+    id = factory.LazyFunction(lambda: str(uuid.uuid4()))
     directory_id = ""
     file_name = factory.LazyFunction(lambda: f"{fake.slug()}.txt")
     file_sha256_hash = ""

@@ -30,12 +30,11 @@ class Directory(Base):
 class DirectoryFile(Base):
     __tablename__ = "directory_files"
 
-    directory_id: Mapped[str] = mapped_column(
-        Text, ForeignKey("directories.id"), primary_key=True
-    )
-    file_name: Mapped[str] = mapped_column(Text, primary_key=True)
-    file_sha256_hash: Mapped[str] = mapped_column(
-        Text, ForeignKey("files.sha256_hash"), nullable=False
-    )
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    directory_id: Mapped[str] = mapped_column(Text, ForeignKey("directories.id"))
+    file_sha256_hash: Mapped[str] = mapped_column(Text, ForeignKey("files.sha256_hash"), nullable=False)
+    file_name: Mapped[str] = mapped_column(Text)
     stats_json: Mapped[str] = mapped_column(Text, nullable=False)
     inserted_ts: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (UniqueConstraint("directory_id", "file_name"),)
