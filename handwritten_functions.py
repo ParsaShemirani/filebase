@@ -129,8 +129,26 @@ def get_directory_children(
 
     return child_files, child_directories, child_directory_files
 
+
+def get_directory_siblings(
+    id: str, session: SessionType
+) -> tuple[list[File], list[Directory], list[DirectoryFile]]:
+    directory = session.scalar(select(Directory).where(Directory.id == id))
+    if directory is None:
+        raise ValueError(f"Directory with id {id} not found")
+
+    parent_directory = session.scalar(
+        select(Directory).where(Directory.id == directory.parent_id)
+    )
+    if parent_directory is None:
+        return [], [], []
+
+    return get_directory_children(id=parent_directory.id, session=session)
+
+
 def get_root_directory(session: SessionType) -> Directory:
     return session.scalar(select(Directory).where(Directory.parent_id == None))
+
 
 def get_root_children(
     session: SessionType,
