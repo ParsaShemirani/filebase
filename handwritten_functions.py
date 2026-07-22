@@ -108,6 +108,11 @@ def build_directory(
         return files, directories, directory_files, file_path_dict
 
 
+def get_parent_directory(id: str, session: SessionType) -> Directory:
+    directory = session.scalar(select(Directory).where(Directory.id == id))
+    return session.scalar(select(Directory).where(Directory.id == directory.parent_id))
+
+
 def get_directory_children(
     id: str, session: SessionType
 ) -> tuple[list[File], list[Directory], list[DirectoryFile]]:

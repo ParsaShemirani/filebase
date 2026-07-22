@@ -8,7 +8,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Static, Tree
 
-from main import build_bundle, create_file, get_current_time_str, Session
+from main_old_2 import build_bundle, create_file, get_current_time_str, Session
 from models import Bundle, BundleFile, Directory, DirectoryBundle, DirectoryFile, File
 
 

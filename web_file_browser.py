@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from connection import Session
 from env_vars import STORAGE_PATH_STR
-from main import build_bundle, create_file
+from main_old_2 import build_bundle, create_file
 from models import Bundle, BundleFile, Directory, DirectoryBundle, DirectoryFile, File
 
 

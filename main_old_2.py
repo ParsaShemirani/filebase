@@ -2,16 +2,14 @@ from dataclasses import dataclass
 
 from textual import events, log
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, TextArea, Button
+from textual.widgets import DataTable, Footer, Button
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
-from textual.message import Message
 
 from handwritten_functions import (
     get_directory_children,
     get_directory_siblings,
     get_root_directory,
-    get_parent_directory,
 )
 from connection import Session
 from models import File, DirectoryFile, Directory
@@ -21,46 +19,17 @@ class ChildDirectoriesViewer(DataTable):
     BINDINGS = [
         ("k", "cursor_up", "Cursor Up"),
         ("j", "cursor_down", "Cursor Down"),
-        ("l", "enter_directory", "Enter Directory"),
         ("x", "cut", "Cut"),
         ("c", "copy", "Copy"),
-        ("w", "wipe_all", "Wipe All"),
+        ("w", "wipe_all", "Wipe All")
     ]
     current_dir_id: reactive[str] = reactive(None)
     child_directories: reactive[list[Directory]] = reactive(list)
     selected_directory_ids: reactive[list[str]] = reactive(list)
 
-    class DirectoryEntered(Message):
-        def __init__(self, directory_id: str) -> None:
-            self.directory_id = directory_id
-            super().__init__()
-
     def on_mount(self):
         self.cursor_type = "row"
         self.add_columns(("S", "selected_col"), ("Name", "name_col"))
-
-    def watch_current_dir_id(self, value):
-        if value is None:
-            return
-
-        with Session() as session:
-            child_files, child_directories, child_directory_files = (
-                get_directory_children(id=value, session=session)
-            )
-            self.child_directories = child_directories
-
-    def watch_child_directories(self) -> None:
-        self.clear()
-        for cd in self.child_directories:
-            if cd.id in self.selected_directory_ids:
-                selected = "S"
-            else:
-                selected = ""
-            self.add_row(selected, cd.name, key=cd.id)
-
-    def action_enter_directory(self) -> None:
-        cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
-        self.post_message(self.DirectoryEntered(cell_key.row_key.value))
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected):
         directory_id = event.row_key.value
@@ -76,19 +45,29 @@ class ChildDirectoriesViewer(DataTable):
                 value = "S"
             else:
                 value = ""
-
+            
             self.update_cell(row_key, "selected_col", value)
 
-class Status(TextArea):
-    current_dir_id: reactive[str] = reactive(None)
-    def on_mount(self):
-        self.text = ""
-    
-    def watch_current_dir_id(self):
-        if self.current_dir_id is None:
-            self.text = ""
+    """
+    def on_cut(self) -> None:
+        if self.highlighted_directory_id in self.cut_directory_ids:
+            self.cut_directory_ids.remove(self.highlighted_directory_id)
         else:
-            self.text = self.current_dir_id
+            self.cut_directory_ids.append(self.highlighted_directory_id)
+        self.mutate_reactive(ChildDirectoriesViewer.cut_directory_ids)
+    """
+    def watch_current_dir_id(self, value):
+        if value is None:
+            return
+
+        with Session() as session:
+            child_files, child_directories, child_directory_files = (
+                get_directory_children(id=value, session=session)
+            )
+
+        for child_directory in child_directories:
+            self.child_directories.append(child_directory)
+
 
 class FilebaseApp(App):
     BINDINGS = [("h", "parent_directory", "Parent Directory")]
@@ -100,17 +79,9 @@ class FilebaseApp(App):
             root_directory = get_root_directory(session=session)
         self.current_dir_id = root_directory.id
 
-    def action_parent_directory(self) -> None:
-        with Session() as session:
-            self.current_dir_id = get_parent_directory(self.current_dir_id, session).id
-
-    def on_child_directories_viewer_directory_entered(self, message: ChildDirectoriesViewer.DirectoryEntered) -> None:
-        self.current_dir_id = message.directory_id
-
     def compose(self) -> ComposeResult:
         yield Horizontal(
-            ChildDirectoriesViewer().data_bind(FilebaseApp.current_dir_id),
-            Status().data_bind(FilebaseApp.current_dir_id),
+            ChildDirectoriesViewer().data_bind(FilebaseApp.current_dir_id)
         )
 
 
