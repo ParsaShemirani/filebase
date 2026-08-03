@@ -8,6 +8,7 @@ from dataclasses import asdict
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
+from textual import log
 
 from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
 from models import File, Directory, DirectoryFile
@@ -151,12 +152,15 @@ def get_directory_siblings(
     return get_directory_children(id=parent_directory.id, session=session)
 
 
-def get_root_directory(session: SessionType) -> Directory:
-    return session.scalar(select(Directory).where(Directory.parent_id == None))
+def get_root_directories(session: SessionType) -> list [Directory]:
+    return session.scalars(select(Directory).where(Directory.parent_id == None)).all()
 
+def generate_directory_path(id: str, session: SessionType) -> str:
+    going_up_list: list[str] = []
+    current_dir = session.scalar(select(Directory).where(Directory.id == id))
+    while current_dir is not None:
+        going_up_list.append(current_dir.name)
+        current_dir = session.scalar(select(Directory).where(Directory.id == current_dir.parent_id))
+    going_up_list.reverse()
+    return (("/").join(going_up_list))
 
-def get_root_children(
-    session: SessionType,
-) -> tuple[list[File], list[Directory], list[DirectoryFile]]:
-    root_directory = get_root_directory(session=session)
-    return get_directory_children(id=root_directory.id, session=session)
