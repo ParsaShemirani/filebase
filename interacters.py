@@ -22,11 +22,6 @@ STORAGE_PATH = Path(STORAGE_PATH_STR)
 def should_ignore_path(path: Path) -> bool:
     return path.name in IGNORED_NAMES
 
-
-def get_current_time_str() -> str:
-    return datetime.now(tz=timezone.utc).isoformat()
-
-
 def generate_sha256_hash(file_path: Path) -> str:
     with file_path.open("rb") as f:
         return file_digest(f, "sha256").hexdigest()
@@ -44,7 +39,6 @@ def create_directory(name: str, parent_id: str | None) -> Directory:
     return Directory(
         id=str(uuid.uuid4()),
         name=name,
-        inserted_ts=get_current_time_str(),
         parent_id=parent_id,
     )
 
@@ -53,7 +47,6 @@ def build_file(file_path: Path) -> File:
     return File(
         sha256_hash=generate_sha256_hash(file_path),
         size_bytes=file_path.stat().st_size,
-        inserted_ts=get_current_time_str(),
     )
 
 
@@ -66,7 +59,6 @@ def build_directory_file(
         file_sha256_hash=file.sha256_hash,
         file_name=file_path.name,
         stats_json=get_stats_json(file_path),
-        inserted_ts=get_current_time_str(),
     )
 
 
