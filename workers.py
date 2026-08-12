@@ -43,6 +43,24 @@ def get_directory_files(
         select(DirectoryFile).where(DirectoryFile.directory_id == directory.id)
     ).all()
 
+def generate_directory_path_str(directory: Directory | None, session: SessionType) -> str:
+    if directory is None:
+        return "/"
+
+    reverse_directory_list = [directory]
+
+    def append_parents(directory: Directory):
+        parent_directory = session.scalar(select(Directory).where(Directory.id == directory.parent_id))
+        if parent_directory is not None:
+            reverse_directory_list.append(parent_directory)
+            append_parents(parent_directory)
+        else:
+            return
+    append_parents(directory)
+
+    directory_list = reversed(reverse_directory_list)
+    return "/" + "/".join(directory.name for directory in directory_list)
+
 
 ### WRITERS
 
