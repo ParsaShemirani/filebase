@@ -349,4 +349,14 @@ if __name__ == "__main__":
     app.run()
 
 
-"Moving directories flow is not clean with cut paste. reconsider where the implementation goes. And refreshing ui can only done manyally via siwthcing directory and back."
+"Moving directories flow is not clean with cut paste. reconsider where the implementation goes. And refreshing ui can only done manyally via siwthcing directory and back."""
+
+
+"""
+NExt task: Rewrite handwritten functions without tuple returns
+actions that interact with filesystem?
+actions that just interact with db?
+actions that interact with storage location?
+
+Make inserted ts generated at db insert time
+"""

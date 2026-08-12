@@ -1,0 +1,113 @@
+import shutil
+import uuid
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+from hashlib import file_digest
+from dataclasses import dataclass, field
+from sqlalchemy import select
+from sqlalchemy.orm import Session as SessionType
+from textual import log
+
+from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
+from models import File, Directory, DirectoryFile
+from connection import Session
+
+IGNORED_NAMES = {".DS_Store"}
+
+TERMINAL_PATH = Path(TERMINAL_PATH_STR)
+STORAGE_PATH = Path(STORAGE_PATH_STR)
+
+
+def should_ignore_path(path: Path) -> bool:
+    return path.name in IGNORED_NAMES
+
+
+def get_current_time_str() -> str:
+    return datetime.now(tz=timezone.utc).isoformat()
+
+
+def generate_sha256_hash(file_path: Path) -> str:
+    with file_path.open("rb") as f:
+        return file_digest(f, "sha256").hexdigest()
+
+
+def get_stats_json(file_path: Path) -> str:
+    stats = file_path.stat()
+    stats_dict = {
+        name: getattr(stats, name) for name in dir(stats) if name.startswith("st_")
+    }
+    return json.dumps(stats_dict, indent=None)
+
+
+def create_directory(name: str, parent_id: str | None) -> Directory:
+    return Directory(
+        id=str(uuid.uuid4()),
+        name=name,
+        inserted_ts=get_current_time_str(),
+        parent_id=parent_id,
+    )
+
+
+def build_file(file_path: Path) -> File:
+    return File(
+        sha256_hash=generate_sha256_hash(file_path),
+        size_bytes=file_path.stat().st_size,
+        inserted_ts=get_current_time_str(),
+    )
+
+
+def build_directory_file(
+    directory: Directory, file: File, file_path: Path
+) -> DirectoryFile:
+    return DirectoryFile(
+        id=str(uuid.uuid4()),
+        directory_id=directory.id,
+        file_sha256_hash=file.sha256_hash,
+        file_name=file_path.name,
+        stats_json=get_stats_json(file_path),
+        inserted_ts=get_current_time_str(),
+    )
+
+
+@dataclass
+class DirectoryBuild:
+    directories: list[Directory] = field(default_factory=list)
+    files: list[File] = field(default_factory=list)
+    directory_files: list[DirectoryFile] = field(default_factory=list)
+    file_id_path_map: dict[str, Path] = field(default_factory=dict)
+
+
+def build_directory(directory_path: Path, parent_id: str | None) -> DirectoryBuild:
+    directory_build = DirectoryBuild()
+
+    directory = create_directory(directory_path.name, parent_id)
+    directory_build.directories.append(directory)
+
+    for child_path in directory_path.iterdir():
+        if should_ignore_path(child_path):
+            continue
+
+        if child_path.is_file():
+            child_file = build_file(child_path)
+            child_directory_file = build_directory_file(
+                directory, child_file, child_path
+            )
+
+            directory_build.files.append(child_file)
+            directory_build.directory_files.append(child_directory_file)
+            directory_build.file_id_path_map[child_file.sha256_hash] = child_path
+
+        elif child_path.is_dir():
+            nested_directory_build = build_directory(child_path, directory.id)
+
+            directory_build.directories.extend(nested_directory_build.directories)
+            directory_build.files.extend(nested_directory_build.files)
+            directory_build.directory_files.extend(
+                nested_directory_build.directory_files
+            )
+            directory_build.file_id_path_map.update(
+                nested_directory_build.file_id_path_map
+            )
+
+    return directory_build

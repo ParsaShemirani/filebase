@@ -9,8 +9,6 @@ from textual import log
 
 from models import Directory, DirectoryFile
 
-IGNORED_NAMES = {".DS_Store"}
-
 ### READERS
 
 
