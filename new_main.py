@@ -9,11 +9,15 @@ from textual.screen import ModalScreen
 from textual import log
 
 from workers import (
+    get_directory_from_id,
+    get_directory_file_from_id,
     get_parent_directory,
     get_child_directories,
     get_directory_files,
     generate_directory_path_str,
     rename_directory,
+    move_directory,
+    move_directory_file,
 )
 
 from models import DirectoryFile, Directory
@@ -39,7 +43,7 @@ class InfoDisplay(Label):
     def watch_info_data(self) -> None:
         info_text = (
             f"Current Directory Path: {self.info_data.current_directory_path_str}"
-            + " | "
+            + "\n"
             + f"Selected Directories Count: {self.info_data.selected_directories_count}"
             + " | "
             + f"Selected Directory Files Count: {self.info_data.selected_directory_files_count}"
@@ -197,6 +201,7 @@ class FilebaseApp(App):
     BINDINGS = [
         ("h", "parent_directory", "Parent Directory"),
         ("d", "deselect_all", "Deselect All"),
+        ("x", "cut_paste", "Cut Paste"),
     ]
     current_directory: reactive[Directory | None] = reactive(None)
 
@@ -254,6 +259,19 @@ class FilebaseApp(App):
         self.selected_directory_ids = set()
         self.selected_directory_file_ids = set()
 
+    def action_cut_paste(self) -> None:
+        with Session() as session:
+            for directory_id in self.selected_directory_ids:
+                directory = get_directory_from_id(directory_id, session)
+                move_directory(directory, self.current_directory, session)
+
+            for directory_file_id in self.selected_directory_file_ids:
+                directory_file = get_directory_file_from_id(directory_file_id, session)
+                move_directory_file(directory_file, self.current_directory, session)
+
+        self.selected_directory_ids = set()
+        self.selected_directory_file_ids = set()
+
     def on_directories_viewer_directory_entered(
         self, message: DirectoriesViewer.DirectoryEntered
     ) -> None:
@@ -302,3 +320,6 @@ class FilebaseApp(App):
 if __name__ == "__main__":
     app = FilebaseApp()
     app.run()
+
+
+"Moving directories flow is not clean with cut paste. reconsider where the implementation goes. And refreshing ui can only done manyally via siwthcing directory and back."

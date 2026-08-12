@@ -17,6 +17,8 @@ IGNORED_NAMES = {".DS_Store"}
 def get_directory_from_id(id: str, session: SessionType) -> Directory | None:
     return session.scalar(select(Directory).where(Directory.id == id))
 
+def get_directory_file_from_id(id: str, session: SessionType) -> DirectoryFile | None:
+    return session.scalar(select(DirectoryFile).where(DirectoryFile.id == id))
 
 def get_parent_directory(
     directory: Directory, session: SessionType
@@ -68,4 +70,22 @@ def generate_directory_path_str(directory: Directory | None, session: SessionTyp
 def rename_directory(directory: Directory, new_name: str, session: SessionType) -> None:
     directory.name = new_name
     session.add(directory)
+    session.commit()
+
+def rename_directory_file(directory_file: DirectoryFile, new_name: str, session: SessionType) -> None:
+    directory_file.file_name = new_name
+    session.add(directory_file)
+    session.commit()
+
+def move_directory(directory: Directory, new_parent_directory: Directory | None, session: SessionType) -> None:
+    if new_parent_directory is not None:
+        directory.parent_id = new_parent_directory.id
+    else:
+        directory.parent_id = None
+    session.add(directory)
+    session.commit()
+
+def move_directory_file(directory_file: DirectoryFile, new_directory: Directory, session: SessionType) -> None:
+    directory_file.directory_id = new_directory.id
+    session.add(directory_file)
     session.commit()
