@@ -16,6 +16,7 @@ from workers import (
     get_directory_files,
     generate_directory_path_str,
     rename_directory,
+    rename_directory_file,
     move_directory,
     move_directory_file,
 )
@@ -152,15 +153,22 @@ class DirectoryFilesViewer(DataTable):
         ("k", "cursor_up", "Cursor Up"),
         ("j", "cursor_down", "Cursor Down"),
         ("space", "select_directory_file", "Select Directory File"),
+        ("r", "rename_directory_file", "Rename Directory File"),
     ]
     directory_files: reactive[list[DirectoryFile]] = reactive(list)
     selected_directory_file_ids: reactive[set[str]] = reactive(set)
 
-    directory_files_map: dict[str, Directory] = {}
+    directory_files_map: dict[str, DirectoryFile] = {}
 
     class DirectoryFileSelected(Message):
         def __init__(self, directory_file: DirectoryFile) -> None:
             self.directory_file = directory_file
+            super().__init__()
+
+    class DirectoryFileRenamed(Message):
+        def __init__(self, directory_file: DirectoryFile, new_name: str) -> None:
+            self.directory_file = directory_file
+            self.new_name = new_name
             super().__init__()
 
     def watch_directory_files(self) -> None:
@@ -191,6 +199,19 @@ class DirectoryFilesViewer(DataTable):
         directory_file = self.directory_files_map[directory_file_id]
 
         self.post_message(self.DirectoryFileSelected(directory_file))
+
+    def action_rename_directory_file(self) -> None:
+        cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
+        directory_file_id = cell_key.row_key.value
+        directory_file = self.directory_files_map[directory_file_id]
+
+        def handle_rename(new_name: str | None) -> None:
+            if new_name:
+                self.post_message(self.DirectoryFileRenamed(directory_file, new_name))
+
+        self.app.push_screen(
+            RenameScreen(directory_file.file_name), callback=handle_rename
+        )
 
     def on_mount(self):
         self.cursor_type = "row"
@@ -296,6 +317,12 @@ class FilebaseApp(App):
         self.selected_directory_file_ids = self.selected_directory_file_ids ^ {
             directory_file_id
         }
+
+    def on_directory_files_viewer_directory_file_renamed(
+        self, message: DirectoryFilesViewer.DirectoryFileRenamed
+    ) -> None:
+        with Session() as session:
+            rename_directory_file(message.directory_file, message.new_name, session)
 
     def compose(self) -> ComposeResult:
         info_display = InfoDisplay()
