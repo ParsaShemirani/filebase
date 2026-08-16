@@ -1,0 +1,3 @@
+Previous: working TUI, cli can ingest directories. But couldn't model directory
+tree, rebuild from database. Also, seperating adding files to database versus transferring
+to hard drive. Created storage devices to mark that transition.

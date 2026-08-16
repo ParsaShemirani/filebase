@@ -6,14 +6,14 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual import log
 
-from old_workers import (
+from old_men.old_workers import (
     get_parent_directory,
     get_child_directories,
     get_directory_files,
     rename_directory,
 )
 
-from models import DirectoryFile, Directory
+from old_men.models import DirectoryFile, Directory
 from connection import Session
 
 

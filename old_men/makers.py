@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
 from textual import log
 
-from models import File, Directory, DirectoryFile
+from old_men.models import File, Directory, DirectoryFile
 from connection import Session
 from env_vars import STORAGE_PATH_STR
 

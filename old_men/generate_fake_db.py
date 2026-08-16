@@ -14,7 +14,7 @@ from faker import Faker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models import Base, Directory, DirectoryFile, File
+from old_men.models import Base, Directory, DirectoryFile, File
 
 
 DEFAULT_OUTPUT_PATH = Path("fake_filebase.db")

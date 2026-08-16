@@ -8,7 +8,7 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual import log
 
-from workers import (
+from old_men.workers import (
     get_directory_from_id,
     get_directory_file_from_id,
     get_parent_directory,
@@ -22,9 +22,9 @@ from workers import (
     insert_directory
 )
 
-from makers import create_directory
+from old_men.makers import create_directory
 
-from models import DirectoryFile, Directory
+from old_men.models import DirectoryFile, Directory
 
 
 @dataclass

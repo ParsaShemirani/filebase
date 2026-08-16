@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
 from textual import log
 
-from models import Directory, DirectoryFile
-from makers import create_directory
+from old_men.models import Directory, DirectoryFile
+from old_men.makers import create_directory
 from connection import Session
 
 

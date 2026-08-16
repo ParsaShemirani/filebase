@@ -5,8 +5,8 @@ from dataclasses import asdict
 import typer
 from tabulate import tabulate
 
-from makers import build_directory
-from workers import insert_objects
+from old_men.makers import build_directory
+from old_men.workers import insert_objects
 from env_vars import PENDING_STORAGE_PATH
 
 
