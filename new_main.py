@@ -14,15 +14,17 @@ from workers import (
     get_parent_directory,
     get_child_directories,
     get_directory_files,
-    generate_directory_path_str,
+    generate_directory_path,
     rename_directory,
     rename_directory_file,
     move_directory,
     move_directory_file,
+    insert_directory
 )
 
+from makers import create_directory
+
 from models import DirectoryFile, Directory
-from connection import Session
 
 
 @dataclass
@@ -52,11 +54,12 @@ class InfoDisplay(Label):
         self.update(info_text)
 
 
-class RenameScreen(ModalScreen):
+class EnterNameScreen(ModalScreen):
     BINDINGS = [("escape", "cancel", "Cancel")]
 
-    def __init__(self, current_name: str) -> None:
-        self.current_name = current_name
+    def __init__(self, initial_name: str, placeholder: str) -> None:
+        self.initial_name = initial_name
+        self.placeholder = placeholder
         super().__init__()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -66,7 +69,7 @@ class RenameScreen(ModalScreen):
         self.dismiss(None)
 
     def compose(self) -> ComposeResult:
-        yield Input(value=self.current_name, placeholder="New name")
+        yield Input(value=self.initial_name, placeholder=self.placeholder)
 
 
 class DirectoriesViewer(DataTable):
@@ -141,7 +144,7 @@ class DirectoriesViewer(DataTable):
             if new_name:
                 self.post_message(self.DirectoryRenamed(directory, new_name))
 
-        self.app.push_screen(RenameScreen(directory.name), callback=handle_rename)
+        self.app.push_screen(EnterNameScreen(directory.name, "Rename Directory"), callback=handle_rename)
 
     def on_mount(self):
         self.cursor_type = "row"
@@ -210,7 +213,7 @@ class DirectoryFilesViewer(DataTable):
                 self.post_message(self.DirectoryFileRenamed(directory_file, new_name))
 
         self.app.push_screen(
-            RenameScreen(directory_file.file_name), callback=handle_rename
+            EnterNameScreen(directory_file.file_name, "Rename Directory File"), callback=handle_rename
         )
 
     def on_mount(self):
@@ -223,6 +226,7 @@ class FilebaseApp(App):
         ("h", "parent_directory", "Parent Directory"),
         ("d", "deselect_all", "Deselect All"),
         ("x", "cut_paste", "Cut Paste"),
+        ("c", "create_directory", "Create Directory"),
     ]
     current_directory: reactive[Directory | None] = reactive(None)
 
@@ -241,22 +245,17 @@ class FilebaseApp(App):
     selected_directory_file_ids: reactive[set[str]] = reactive(set)
 
     def watch_current_directory(self) -> None:
-        with Session() as session:
-            self.info_data.current_directory_path_str = generate_directory_path_str(
-                self.current_directory, session
-            )
-            self.mutate_reactive(FilebaseApp.info_data)
+        self.info_data.current_directory_path_str = generate_directory_path(
+            self.current_directory
+        )
+        self.mutate_reactive(FilebaseApp.info_data)
 
-            self.child_directories = get_child_directories(
-                self.current_directory, session
-            )
+        self.child_directories = get_child_directories(self.current_directory)
 
-            if self.current_directory is not None:
-                self.directory_files = get_directory_files(
-                    self.current_directory, session
-                )
-            else:
-                self.directory_files = []
+        if self.current_directory is not None:
+            self.directory_files = get_directory_files(self.current_directory)
+        else:
+            self.directory_files = []
 
     def watch_selected_directory_ids(self) -> None:
         self.info_data.selected_directories_count = len(self.selected_directory_ids)
@@ -269,29 +268,38 @@ class FilebaseApp(App):
         self.mutate_reactive(FilebaseApp.info_data)
 
     def action_parent_directory(self) -> None:
-        with Session() as session:
-            parent_directory = get_parent_directory(self.current_directory, session)
-            if parent_directory is None:
-                self.current_directory = None
-            else:
-                self.current_directory = parent_directory
+        parent_directory = get_parent_directory(self.current_directory)
+        if parent_directory is None:
+            self.current_directory = None
+        else:
+            self.current_directory = parent_directory
 
     def action_deselect_all(self) -> None:
         self.selected_directory_ids = set()
         self.selected_directory_file_ids = set()
 
     def action_cut_paste(self) -> None:
-        with Session() as session:
-            for directory_id in self.selected_directory_ids:
-                directory = get_directory_from_id(directory_id, session)
-                move_directory(directory, self.current_directory, session)
+        for directory_id in self.selected_directory_ids:
+            directory = get_directory_from_id(directory_id)
+            move_directory(directory, self.current_directory)
 
-            for directory_file_id in self.selected_directory_file_ids:
-                directory_file = get_directory_file_from_id(directory_file_id, session)
-                move_directory_file(directory_file, self.current_directory, session)
+        for directory_file_id in self.selected_directory_file_ids:
+            directory_file = get_directory_file_from_id(directory_file_id)
+            move_directory_file(directory_file, self.current_directory)
 
         self.selected_directory_ids = set()
         self.selected_directory_file_ids = set()
+
+    def action_create_directory(self) -> None:
+        def handle_create_directory(name: str | None) -> None:
+            if name:
+                if self.current_directory is not None:
+                    parent_id = self.current_directory.id
+                else:
+                    parent_id = None
+                insert_directory(name, parent_id)
+
+        self.push_screen(EnterNameScreen("", "Create Directory"), callback=handle_create_directory)
 
     def on_directories_viewer_directory_entered(
         self, message: DirectoriesViewer.DirectoryEntered
@@ -307,8 +315,7 @@ class FilebaseApp(App):
     def on_directories_viewer_directory_renamed(
         self, message: DirectoriesViewer.DirectoryRenamed
     ) -> None:
-        with Session() as session:
-            rename_directory(message.directory, message.new_name, session)
+        rename_directory(message.directory, message.new_name)
 
     def on_directory_files_viewer_directory_file_selected(
         self, message: DirectoryFilesViewer.DirectoryFileSelected
@@ -321,8 +328,7 @@ class FilebaseApp(App):
     def on_directory_files_viewer_directory_file_renamed(
         self, message: DirectoryFilesViewer.DirectoryFileRenamed
     ) -> None:
-        with Session() as session:
-            rename_directory_file(message.directory_file, message.new_name, session)
+        rename_directory_file(message.directory_file, message.new_name)
 
     def compose(self) -> ComposeResult:
         info_display = InfoDisplay()
@@ -349,14 +355,9 @@ if __name__ == "__main__":
     app.run()
 
 
-"Moving directories flow is not clean with cut paste. reconsider where the implementation goes. And refreshing ui can only done manyally via siwthcing directory and back."""
-
-
 """
-NExt task: Rewrite handwritten functions without tuple returns
-actions that interact with filesystem?
-actions that just interact with db?
-actions that interact with storage location?
+Storage device table and join to 
+record local file path, if it has been moved or not.
 
-Make inserted ts generated at db insert time
+
 """

@@ -9,18 +9,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as SessionType
 from textual import log
 
-from env_vars import DATABASE_PATH_STR, TERMINAL_PATH_STR, STORAGE_PATH_STR
 from models import File, Directory, DirectoryFile
 from connection import Session
+from env_vars import STORAGE_PATH_STR
 
 IGNORED_NAMES = {".DS_Store"}
 
-TERMINAL_PATH = Path(TERMINAL_PATH_STR)
 STORAGE_PATH = Path(STORAGE_PATH_STR)
-
 
 def should_ignore_path(path: Path) -> bool:
     return path.name in IGNORED_NAMES
+
 
 def generate_sha256_hash(file_path: Path) -> str:
     with file_path.open("rb") as f:
@@ -103,3 +102,35 @@ def build_directory(directory_path: Path, parent_id: str | None) -> DirectoryBui
             )
 
     return directory_build
+
+
+def build_data_directory(directory: Directory, session: SessionType) -> DirectoryBuild:
+    directory_build = DirectoryBuild()
+    directory_build.directories.append(directory)
+
+    child_directory_files = session.scalars(
+        select(DirectoryFile).where(DirectoryFile.directory_id == directory.id)
+    ).all()
+
+    child_file_hashes = [cdf.file_sha256_hash for cdf in child_directory_files]
+    child_files = session.scalars(
+        select(File).where(File.sha256_hash.in_(child_file_hashes))
+    )
+
+    directory_build.directory_files.extend(child_directory_files)
+    directory_build.files.extend(child_files)
+
+    child_directories = session.scalars(
+        select(Directory).where(Directory.parent_id == directory.id)
+    ).all()
+    for cd in child_directories:
+        nested_directory_build = build_data_directory(cd, session)
+
+        directory_build.directories.extend(nested_directory_build.directories)
+        directory_build.files.extend(nested_directory_build.files)
+        directory_build.directory_files.extend(nested_directory_build.directory_files)
+
+    return directory_build
+
+def retrieve_directory(directory_build: DirectoryBuild) -> None:
+    ...

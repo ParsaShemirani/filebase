@@ -52,3 +52,22 @@ class DirectoryFile(Base):
     )
 
     __table_args__ = (UniqueConstraint("directory_id", "file_name"),)
+
+
+class StorageDevice(Base):
+    __tablename__ = "storage_devices"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+class StorageDeviceFile(Base):
+    __tablename__ = "storage_device_files"
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    storage_device_id: Mapped[str] = mapped_column(Text, ForeignKey("storage_devices.id"))
+    file_sha256_hash: Mapped[str] = mapped_column(
+        Text, ForeignKey("files.sha256_hash"), nullable=False
+    )
+    origin_file_path: Mapped[str] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (UniqueConstraint("storage_device_id", "file_sha256_hash"),)
