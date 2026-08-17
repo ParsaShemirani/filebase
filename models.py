@@ -59,13 +59,24 @@ class StorageDevice(Base):
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
 
 class StorageDeviceFile(Base):
     __tablename__ = "storage_device_files"
+
     id: Mapped[str] = mapped_column(Text, primary_key=True)
-    storage_device_id: Mapped[str] = mapped_column(Text, ForeignKey("storage_devices.id"))
-    file_sha256_hash: Mapped[str] = mapped_column(Text, ForeignKey("files.sha256_hash"), nullable=False)
+    storage_device_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("storage_devices.id")
+    )
+    file_sha256_hash: Mapped[str] = mapped_column(
+        Text, ForeignKey("files.sha256_hash"), nullable=False
+    )
     origin_file_path: Mapped[str] = mapped_column(Text, nullable=True)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
 
     __table_args__ = (UniqueConstraint("storage_device_id", "file_sha256_hash"),)

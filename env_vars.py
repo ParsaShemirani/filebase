@@ -10,4 +10,3 @@ def get_required_env(name: str) -> str:
     return value
 
 DATABASE_PATH_STR = get_required_env("DATABASE_PATH_STR")
-STORAGE_PATH_STR = get_required_env("STORAGE_PATH_STR")
