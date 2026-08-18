@@ -184,12 +184,15 @@ class DirectoryFilesViewer(DataTable):
     def action_rename_directory_file(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_file_id = cell_key.row_key.value
-        directory_file_name = FilebaseService.get_directory_file_from_id(directory_file_id).file_name
-
+        directory_file_name = FilebaseService.get_directory_file_from_id(
+            directory_file_id
+        ).file_name
 
         def handle_rename(new_name: str | None) -> None:
             if new_name:
-                self.post_message(self.DirectoryFileRenamed(directory_file_id, new_name))
+                self.post_message(
+                    self.DirectoryFileRenamed(directory_file_id, new_name)
+                )
 
         self.app.push_screen(
             EnterNameScreen(directory_file_name, "Rename Directory File"),
@@ -233,7 +236,9 @@ class FilebaseApp(App):
         self.child_directories = FilebaseService.get_child_directories(
             self.current_directory_id
         )
-        self.directory_files = FilebaseService.get_directory_files(self.current_directory_id)
+        self.directory_files = FilebaseService.get_directory_files(
+            self.current_directory_id
+        )
 
     def watch_selected_directory_ids(self) -> None:
         self.info_data.selected_directories_count = len(self.selected_directory_ids)
@@ -256,8 +261,13 @@ class FilebaseApp(App):
         self.selected_directory_file_ids = set()
 
     def action_cut_paste(self) -> None:
-        if self.current_directory_id is None and self.selected_directory_file_ids != set():
-            raise ValueError("Attempted to move directory files to None directory, aborted")
+        if (
+            self.current_directory_id is None
+            and self.selected_directory_file_ids != set()
+        ):
+            raise ValueError(
+                "Attempted to move directory files to None directory, aborted"
+            )
 
         FilebaseService.cut_paste_directories(
             self.selected_directory_ids, self.current_directory_id
@@ -283,7 +293,9 @@ class FilebaseApp(App):
     def on_directories_viewer_directory_selected(
         self, message: DirectoriesViewer.DirectorySelected
     ) -> None:
-        self.selected_directory_ids = self.selected_directory_ids ^ {message.directory_id}
+        self.selected_directory_ids = self.selected_directory_ids ^ {
+            message.directory_id
+        }
 
     def on_directories_viewer_directory_renamed(
         self, message: DirectoriesViewer.DirectoryRenamed

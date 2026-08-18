@@ -146,10 +146,12 @@ class FilebaseService:
     def get_directory_from_id(directory_id: str) -> Directory:
         with Session() as session:
             return _get_directory_from_id(directory_id, session)
+
     @staticmethod
     def get_directory_file_from_id(directory_file_id: str) -> DirectoryFile:
         with Session() as session:
             return _get_directory_file_from_id(directory_file_id, session)
+
     @staticmethod
     def get_parent_directory(directory_id: str) -> Directory | None:
         with Session() as session:
