@@ -66,7 +66,54 @@ class DirectoryNode:
     directory_files: list[DirectoryFile] = field(default_factory=list)
     children: list["DirectoryNode"] = field(default_factory=list)
 
-    file_path_map: dict[str, Path] = field(default_factory=dict)
+    source_directory_file_paths: dict[str, Path] = field(default_factory=dict)
+
+    def get_all_directories(self) -> list[Directory]:
+        directories = [self.directory]
+
+        for child in self.children:
+            directories.extend(child.get_all_directories())
+
+        return directories
+
+    def get_all_directory_files(self) -> list[DirectoryFile]:
+        directory_files = list(self.directory_files)
+
+        for child in self.children:
+            directory_files.extend(child.get_all_directory_files())
+
+        return directory_files
+
+    def get_all_source_directory_file_paths(self) -> dict[str, Path]:
+        source_paths = dict(self.source_directory_file_paths)
+
+        for child in self.children:
+            source_paths.update(child.get_all_source_directory_file_paths())
+
+        return source_paths
+
+    def get_directory_path_map(self, root_path: Path) -> dict[str, Path]:
+        current_path = root_path / self.directory.name
+        directory_path_map = {self.directory.id: current_path}
+
+        for child in self.children:
+            directory_path_map.update(child.get_directory_path_map(current_path))
+
+        return directory_path_map
+
+    def get_directory_file_path_map(self, root_path: Path) -> dict[str, Path]:
+        current_path = root_path / self.directory.name
+        directory_file_path_map: dict[str, Path] = {}
+
+        for directory_file in self.directory_files:
+            directory_file_path_map[directory_file.id] = (
+                current_path / directory_file.file_name
+            )
+
+        for child in self.children:
+            directory_file_path_map.update(child.get_directory_path_map(current_path))
+
+        return directory_file_path_map
 
 
 def build_directory_node(directory_path: Path, parent_id: str | None) -> DirectoryNode:
@@ -83,7 +130,7 @@ def build_directory_node(directory_path: Path, parent_id: str | None) -> Directo
 
             directory_node.files.append(file)
             directory_node.directory_files.append(directory_file)
-            directory_node.file_path_map[file.sha256_hash] = child_path
+            directory_node.source_directory_file_paths[directory_file.id] = child_path
 
         elif child_path.is_dir():
             child_directory_node = build_directory_node(child_path, directory.id)

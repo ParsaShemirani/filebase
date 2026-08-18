@@ -74,9 +74,20 @@ class StorageDeviceFile(Base):
     file_sha256_hash: Mapped[str] = mapped_column(
         Text, ForeignKey("files.sha256_hash"), nullable=False
     )
-    origin_file_path: Mapped[str] = mapped_column(Text, nullable=True)
     inserted_ts: Mapped[str] = mapped_column(
         Text, nullable=False, insert_default=get_current_time_str, default=None
     )
 
     __table_args__ = (UniqueConstraint("storage_device_id", "file_sha256_hash"),)
+
+class StagedFile(Base):
+    __tablename__ = "staged_files"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    file_sha256_hash: Mapped[str] = mapped_column(
+        Text, ForeignKey("files.sha256_hash"), nullable=False
+    )
+    source_file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )

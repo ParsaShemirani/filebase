@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shutil
 import uuid
 import json
@@ -64,9 +66,30 @@ class DirectoryNode:
     directory: Directory
     files: list[File] = field(default_factory=list)
     directory_files: list[DirectoryFile] = field(default_factory=list)
-    children: list["DirectoryNode"] = field(default_factory=list)
+    children: list[DirectoryNode] = field(default_factory=list)
 
-    source_directory_file_paths: dict[str, Path] = field(default_factory=dict)
+    @classmethod
+    def from_path(cls, directory_path: Path, parent_id: str | None = None) -> DirectoryNode:
+        directory = build_directory(directory_path.name, parent_id)
+        directory_node = cls(directory)
+
+        for child_path in directory_path.iterdir():
+            if should_ignore_path(child_path):
+                continue
+
+            if child_path.is_file():
+                file = build_file(child_path)
+                directory_file = build_directory_file(directory, file, child_path)
+
+                directory_node.files.append(file)
+                directory_node.directory_files.append(directory_file)
+
+            elif child_path.is_dir():
+                child_directory_node = cls.from_path(child_path, directory.id)
+                directory_node.children.append(child_directory_node)
+
+        return directory_node
+
 
     def get_all_directories(self) -> list[Directory]:
         directories = [self.directory]
@@ -83,14 +106,6 @@ class DirectoryNode:
             directory_files.extend(child.get_all_directory_files())
 
         return directory_files
-
-    def get_all_source_directory_file_paths(self) -> dict[str, Path]:
-        source_paths = dict(self.source_directory_file_paths)
-
-        for child in self.children:
-            source_paths.update(child.get_all_source_directory_file_paths())
-
-        return source_paths
 
     def get_directory_path_map(self, root_path: Path) -> dict[str, Path]:
         current_path = root_path / self.directory.name
@@ -114,29 +129,6 @@ class DirectoryNode:
             directory_file_path_map.update(child.get_directory_path_map(current_path))
 
         return directory_file_path_map
-
-
-def build_directory_node(directory_path: Path, parent_id: str | None) -> DirectoryNode:
-    directory = build_directory(directory_path.name, parent_id)
-    directory_node = DirectoryNode(directory)
-
-    for child_path in directory_path.iterdir():
-        if should_ignore_path(child_path):
-            continue
-
-        if child_path.is_file():
-            file = build_file(child_path)
-            directory_file = build_directory_file(directory, file, child_path)
-
-            directory_node.files.append(file)
-            directory_node.directory_files.append(directory_file)
-            directory_node.source_directory_file_paths[directory_file.id] = child_path
-
-        elif child_path.is_dir():
-            child_directory_node = build_directory_node(child_path, directory.id)
-            directory_node.children.append(child_directory_node)
-
-    return directory_node
 
 
 ### Sessioners

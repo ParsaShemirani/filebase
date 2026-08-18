@@ -1,1 +1,18 @@
-2026-08-17
+2026-08-18T00:43-07:00
+
+- Solid tui for navigating existing database,
+creating directories, moving and renaming.
+
+Main focus: ingesting and retrieving.
+
+Idea: directory node or similar structure can build
+objects. CLI will output tree like text so I can approve.
+Then, it will add the objects, but the files have not been stored on
+a device, and the database reflects that, as no StorageDeviceFile instances
+appear for the File. I must keep all such files on my local system in one place,
+so overnight, i may run a script.
+recursively, for each file: does its hash have a File record?
+if so, does it already have a StorageDeviceFile instance? If not, 
+copy over the ones and zeros to our target StorageDevice, add the instance, and move on.
+Once complete, the database will confirm there are no File objects that are not stored,
+and I can safely delete the local guys.
