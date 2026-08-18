@@ -137,10 +137,15 @@ def _move_directory_file(
     session: SessionType,
 ) -> None:
     directory_file = _get_directory_file_from_id(directory_file_id, session)
+    _get_directory_from_id(destination_directory_id, session)
     directory_file.directory_id = destination_directory_id
 
 
 class FilebaseService:
+    @staticmethod
+    def get_directory_from_id(directory_id: str) -> Directory:
+        with Session() as session:
+            return _get_directory_from_id(directory_id, session)
     @staticmethod
     def get_parent_directory(directory_id: str) -> Directory | None:
         with Session() as session:

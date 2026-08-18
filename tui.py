@@ -68,27 +68,24 @@ class DirectoriesViewer(DataTable):
     directories: reactive[list[Directory]] = reactive(list)
     selected_directory_ids: reactive[set[str]] = reactive(set)
 
-    directories_map: dict[str, Directory] = {}
-
     class DirectoryEntered(Message):
-        def __init__(self, directory: Directory) -> None:
-            self.directory = directory
+        def __init__(self, directory_id: str) -> None:
+            self.directory_id = directory_id
             super().__init__()
 
     class DirectorySelected(Message):
-        def __init__(self, directory: Directory) -> None:
-            self.directory = directory
+        def __init__(self, directory_id: str) -> None:
+            self.directory_id = directory_id
             super().__init__()
 
     class DirectoryRenamed(Message):
-        def __init__(self, directory: Directory, new_name: str) -> None:
-            self.directory = directory
+        def __init__(self, directory_id: str, new_name: str) -> None:
+            self.directory_id = directory_id
             self.new_name = new_name
             super().__init__()
 
     def watch_directories(self) -> None:
         self.clear()
-        self.directories_map = {d.id: d for d in self.directories}
         for directory in self.directories:
             if directory.id in self.selected_directory_ids:
                 selected_value = "S"
@@ -109,28 +106,26 @@ class DirectoriesViewer(DataTable):
     def action_enter_directory(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_id = cell_key.row_key.value
-        directory = self.directories_map[directory_id]
 
-        self.post_message(self.DirectoryEntered(directory))
+        self.post_message(self.DirectoryEntered(directory_id))
 
     def action_select_directory(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_id = cell_key.row_key.value
-        directory = self.directories_map[directory_id]
 
-        self.post_message(self.DirectorySelected(directory))
+        self.post_message(self.DirectorySelected(directory_id))
 
     def action_rename_directory(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_id = cell_key.row_key.value
-        directory = self.directories_map[directory_id]
+        directory_name = FilebaseService.get_directory_from_id(directory_id).name
 
         def handle_rename(new_name: str | None) -> None:
             if new_name:
-                self.post_message(self.DirectoryRenamed(directory, new_name))
+                self.post_message(self.DirectoryRenamed(directory_id, new_name))
 
         self.app.push_screen(
-            EnterNameScreen(directory.name, "Rename Directory"), callback=handle_rename
+            EnterNameScreen(directory_name, "Rename Directory"), callback=handle_rename
         )
 
     def on_mount(self):
@@ -216,7 +211,7 @@ class FilebaseApp(App):
         ("x", "cut_paste", "Cut Paste"),
         ("c", "create_directory", "Create Directory"),
     ]
-    current_directory: reactive[Directory | None] = reactive(None)
+    current_directory_id: reactive[str | None] = reactive(None)
 
     info_data: reactive[InfoData] = reactive(
         InfoData(
@@ -232,21 +227,16 @@ class FilebaseApp(App):
     directory_files: reactive[list[DirectoryFile]] = reactive(list)
     selected_directory_file_ids: reactive[set[str]] = reactive(set)
 
-    def watch_current_directory(self) -> None:
-        if self.current_directory is not None:
-            current_directory_id = self.current_directory.id
-        else:
-            current_directory_id = None
-
+    def watch_current_directory_id(self) -> None:
         self.info_data.current_directory_path_str = (
-            FilebaseService.generate_directory_path(current_directory_id)
+            FilebaseService.generate_directory_path(self.current_directory_id)
         )
         self.mutate_reactive(FilebaseApp.info_data)
 
         self.child_directories = FilebaseService.get_child_directories(
-            current_directory_id
+            self.current_directory_id
         )
-        self.directory_files = FilebaseService.get_directory_files(current_directory_id)
+        self.directory_files = FilebaseService.get_directory_files(self.current_directory_id)
 
     def watch_selected_directory_ids(self) -> None:
         self.info_data.selected_directories_count = len(self.selected_directory_ids)
@@ -259,32 +249,30 @@ class FilebaseApp(App):
         self.mutate_reactive(FilebaseApp.info_data)
 
     def action_parent_directory(self) -> None:
-        if self.current_directory is not None:
-            self.current_directory = FilebaseService.get_parent_directory(
-                self.current_directory.id
-            )
+        if self.current_directory_id is not None:
+            self.current_directory_id = FilebaseService.get_parent_directory(
+                self.current_directory_id
+            ).id
 
     def action_deselect_all(self) -> None:
         self.selected_directory_ids = set()
         self.selected_directory_file_ids = set()
 
     def action_cut_paste(self) -> None:
+        if self.current_directory_id is None and self.selected_directory_file_ids == set():
+            raise ValueError("Attempted to move directory files to None directory, aborted")
+
         FilebaseService.cut_paste_directories(
-            self.selected_directory_ids, self.current_directory.id
+            self.selected_directory_ids, self.current_directory_id
         )
         FilebaseService.cut_paste_directory_files(
-            self.selected_directory_file_ids, self.current_directory.id
+            self.selected_directory_file_ids, self.current_directory_id
         )
 
     def action_create_directory(self) -> None:
         def handle_create_directory(name: str | None) -> None:
             if name:
-                if self.current_directory is not None:
-                    current_directory_id = self.current_directory.id
-                else:
-                    current_directory_id = None
-
-                FilebaseService.create_directory(name, current_directory_id)
+                FilebaseService.create_directory(name, self.current_directory_id)
 
         self.push_screen(
             EnterNameScreen("", "Create Directory"), callback=handle_create_directory
@@ -293,18 +281,17 @@ class FilebaseApp(App):
     def on_directories_viewer_directory_entered(
         self, message: DirectoriesViewer.DirectoryEntered
     ) -> None:
-        self.current_directory = message.directory
+        self.current_directory_id = message.directory_id
 
     def on_directories_viewer_directory_selected(
         self, message: DirectoriesViewer.DirectorySelected
     ) -> None:
-        directory_id = message.directory.id
-        self.selected_directory_ids = self.selected_directory_ids ^ {directory_id}
+        self.selected_directory_ids = self.selected_directory_ids ^ {message.directory_id}
 
     def on_directories_viewer_directory_renamed(
         self, message: DirectoriesViewer.DirectoryRenamed
     ) -> None:
-        FilebaseService.rename_directory(message.directory.id, message.new_name)
+        FilebaseService.rename_directory(message.directory_id, message.new_name)
 
     def on_directory_files_viewer_directory_file_selected(
         self, message: DirectoryFilesViewer.DirectoryFileSelected

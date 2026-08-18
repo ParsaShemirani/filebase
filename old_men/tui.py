@@ -237,13 +237,15 @@ class FilebaseApp(App):
             current_directory_id = self.current_directory.id
         else:
             current_directory_id = None
-        
-        self.info_data.current_directory_path_str = FilebaseService.generate_directory_path(
-            current_directory_id
+
+        self.info_data.current_directory_path_str = (
+            FilebaseService.generate_directory_path(current_directory_id)
         )
         self.mutate_reactive(FilebaseApp.info_data)
 
-        self.child_directories = FilebaseService.get_child_directories(current_directory_id)
+        self.child_directories = FilebaseService.get_child_directories(
+            current_directory_id
+        )
         self.directory_files = FilebaseService.get_directory_files(current_directory_id)
 
     def watch_selected_directory_ids(self) -> None:
@@ -258,32 +260,31 @@ class FilebaseApp(App):
 
     def action_parent_directory(self) -> None:
         if self.current_directory is not None:
-            self.current_directory = FilebaseService.get_parent_directory(self.current_directory.id)
+            self.current_directory = FilebaseService.get_parent_directory(
+                self.current_directory.id
+            )
 
     def action_deselect_all(self) -> None:
         self.selected_directory_ids = set()
         self.selected_directory_file_ids = set()
 
     def action_cut_paste(self) -> None:
-        for directory_id in self.selected_directory_ids:
-            directory = get_directory_from_id(directory_id)
-            move_directory(directory, self.current_directory)
-
-        for directory_file_id in self.selected_directory_file_ids:
-            directory_file = get_directory_file_from_id(directory_file_id)
-            move_directory_file(directory_file, self.current_directory)
-
-        self.selected_directory_ids = set()
-        self.selected_directory_file_ids = set()
+        FilebaseService.cut_paste_directories(
+            self.selected_directory_ids, self.current_directory.id
+        )
+        FilebaseService.cut_paste_directory_files(
+            self.selected_directory_file_ids, self.current_directory.id
+        )
 
     def action_create_directory(self) -> None:
         def handle_create_directory(name: str | None) -> None:
             if name:
                 if self.current_directory is not None:
-                    parent_id = self.current_directory.id
+                    current_directory_id = self.current_directory.id
                 else:
-                    parent_id = None
-                insert_directory(name, parent_id)
+                    current_directory_id = None
+
+                FilebaseService.create_directory(name, current_directory_id)
 
         self.push_screen(
             EnterNameScreen("", "Create Directory"), callback=handle_create_directory
@@ -316,8 +317,9 @@ class FilebaseApp(App):
     def on_directory_files_viewer_directory_file_renamed(
         self, message: DirectoryFilesViewer.DirectoryFileRenamed
     ) -> None:
-        FilebaseService.rename_directory_file(message.directory_file.id, message.new_name)
-
+        FilebaseService.rename_directory_file(
+            message.directory_file.id, message.new_name
+        )
 
     def compose(self) -> ComposeResult:
         info_display = InfoDisplay()
@@ -342,11 +344,3 @@ class FilebaseApp(App):
 if __name__ == "__main__":
     app = FilebaseApp()
     app.run()
-
-
-"""
-Storage device table and join to 
-record local file path, if it has been moved or not.
-
-
-"""
