@@ -8,23 +8,8 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual import log
 
-from old_men.workers import (
-    get_directory_from_id,
-    get_directory_file_from_id,
-    get_parent_directory,
-    get_child_directories,
-    get_directory_files,
-    generate_directory_path,
-    rename_directory,
-    rename_directory_file,
-    move_directory,
-    move_directory_file,
-    insert_directory
-)
-
-from old_men.makers import create_directory
-
-from old_men.models import DirectoryFile, Directory
+from models import DirectoryFile, Directory
+from helpers import FilebaseService
 
 
 @dataclass
@@ -144,7 +129,9 @@ class DirectoriesViewer(DataTable):
             if new_name:
                 self.post_message(self.DirectoryRenamed(directory, new_name))
 
-        self.app.push_screen(EnterNameScreen(directory.name, "Rename Directory"), callback=handle_rename)
+        self.app.push_screen(
+            EnterNameScreen(directory.name, "Rename Directory"), callback=handle_rename
+        )
 
     def on_mount(self):
         self.cursor_type = "row"
@@ -213,7 +200,8 @@ class DirectoryFilesViewer(DataTable):
                 self.post_message(self.DirectoryFileRenamed(directory_file, new_name))
 
         self.app.push_screen(
-            EnterNameScreen(directory_file.file_name, "Rename Directory File"), callback=handle_rename
+            EnterNameScreen(directory_file.file_name, "Rename Directory File"),
+            callback=handle_rename,
         )
 
     def on_mount(self):
@@ -245,17 +233,18 @@ class FilebaseApp(App):
     selected_directory_file_ids: reactive[set[str]] = reactive(set)
 
     def watch_current_directory(self) -> None:
-        self.info_data.current_directory_path_str = generate_directory_path(
-            self.current_directory
+        if self.current_directory is not None:
+            current_directory_id = self.current_directory.id
+        else:
+            current_directory_id = None
+        
+        self.info_data.current_directory_path_str = FilebaseService.generate_directory_path(
+            current_directory_id
         )
         self.mutate_reactive(FilebaseApp.info_data)
 
-        self.child_directories = get_child_directories(self.current_directory)
-
-        if self.current_directory is not None:
-            self.directory_files = get_directory_files(self.current_directory)
-        else:
-            self.directory_files = []
+        self.child_directories = FilebaseService.get_child_directories(current_directory_id)
+        self.directory_files = FilebaseService.get_directory_files(current_directory_id)
 
     def watch_selected_directory_ids(self) -> None:
         self.info_data.selected_directories_count = len(self.selected_directory_ids)
@@ -268,11 +257,8 @@ class FilebaseApp(App):
         self.mutate_reactive(FilebaseApp.info_data)
 
     def action_parent_directory(self) -> None:
-        parent_directory = get_parent_directory(self.current_directory)
-        if parent_directory is None:
-            self.current_directory = None
-        else:
-            self.current_directory = parent_directory
+        if self.current_directory is not None:
+            self.current_directory = FilebaseService.get_parent_directory(self.current_directory.id)
 
     def action_deselect_all(self) -> None:
         self.selected_directory_ids = set()
@@ -299,7 +285,9 @@ class FilebaseApp(App):
                     parent_id = None
                 insert_directory(name, parent_id)
 
-        self.push_screen(EnterNameScreen("", "Create Directory"), callback=handle_create_directory)
+        self.push_screen(
+            EnterNameScreen("", "Create Directory"), callback=handle_create_directory
+        )
 
     def on_directories_viewer_directory_entered(
         self, message: DirectoriesViewer.DirectoryEntered
@@ -315,7 +303,7 @@ class FilebaseApp(App):
     def on_directories_viewer_directory_renamed(
         self, message: DirectoriesViewer.DirectoryRenamed
     ) -> None:
-        rename_directory(message.directory, message.new_name)
+        FilebaseService.rename_directory(message.directory.id, message.new_name)
 
     def on_directory_files_viewer_directory_file_selected(
         self, message: DirectoryFilesViewer.DirectoryFileSelected
@@ -328,7 +316,8 @@ class FilebaseApp(App):
     def on_directory_files_viewer_directory_file_renamed(
         self, message: DirectoryFilesViewer.DirectoryFileRenamed
     ) -> None:
-        rename_directory_file(message.directory_file, message.new_name)
+        FilebaseService.rename_directory_file(message.directory_file.id, message.new_name)
+
 
     def compose(self) -> ComposeResult:
         info_display = InfoDisplay()

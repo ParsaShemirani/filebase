@@ -18,9 +18,11 @@ IGNORED_NAMES = {".DS_Store"}
 def should_ignore_path(path: Path) -> bool:
     return path.name in IGNORED_NAMES
 
+
 def generate_sha256_hash(file_path: Path) -> str:
     with file_path.open("rb") as f:
         return file_digest(f, "sha256").hexdigest()
+
 
 def get_stats_json(file_path: Path) -> str:
     stats = file_path.stat()
@@ -29,6 +31,7 @@ def get_stats_json(file_path: Path) -> str:
     }
     return json.dumps(stats_dict, indent=None)
 
+
 def build_directory(name: str, parent_id: str | None) -> Directory:
     return Directory(
         id=str(uuid.uuid4()),
@@ -36,11 +39,13 @@ def build_directory(name: str, parent_id: str | None) -> Directory:
         parent_id=parent_id,
     )
 
+
 def build_file(file_path: Path) -> File:
     return File(
         sha256_hash=generate_sha256_hash(file_path),
         size_bytes=file_path.stat().st_size,
     )
+
 
 def build_directory_file(
     directory: Directory, file: File, file_path: Path
@@ -52,6 +57,7 @@ def build_directory_file(
         file_name=file_path.name,
         stats_json=get_stats_json(file_path),
     )
+
 
 @dataclass
 class DirectoryNode:
@@ -110,16 +116,20 @@ def _get_directory_file_from_id(
     else:
         raise ValueError(f"Directory file with id {directory_file_id} not found")
 
+
 def _move_directory(
     directory_id: str, destination_directory_id: str | None, session: SessionType
 ) -> None:
     directory = _get_directory_from_id(directory_id, session)
 
     if destination_directory_id is not None:
-        destination_directory = _get_directory_from_id(destination_directory_id, session)
+        destination_directory = _get_directory_from_id(
+            destination_directory_id, session
+        )
         directory.parent_id = destination_directory.id
     else:
         directory.parent_id = None
+
 
 def _move_directory_file(
     directory_file_id: str,
@@ -129,6 +139,7 @@ def _move_directory_file(
     directory_file = _get_directory_file_from_id(directory_file_id, session)
     directory_file.directory_id = destination_directory_id
 
+
 class FilebaseService:
     @staticmethod
     def get_parent_directory(directory_id: str) -> Directory | None:
@@ -137,18 +148,26 @@ class FilebaseService:
             return session.scalar(
                 select(Directory).where(Directory.id == directory.parent_id)
             )
+
     @staticmethod
     def get_child_directories(directory_id: str | None) -> list[Directory]:
         with Session() as session:
             return session.scalars(
                 select(Directory).where(Directory.parent_id == directory_id)
             ).all()
+
     @staticmethod
-    def get_directory_files(directory_id: str) -> list[DirectoryFile]:
-        with Session() as session:
-            return session.scalars(
-                select(DirectoryFile).where(DirectoryFile.directory_id == directory_id)
-            ).all()
+    def get_directory_files(directory_id: str | None) -> list[DirectoryFile]:
+        if directory_id is not None:
+            with Session() as session:
+                return session.scalars(
+                    select(DirectoryFile).where(
+                        DirectoryFile.directory_id == directory_id
+                    )
+                ).all()
+        else:
+            return []
+
     @staticmethod
     def generate_directory_path(directory_id: str | None) -> str:
         if directory_id is None:
@@ -181,30 +200,37 @@ class FilebaseService:
             with session.begin():
                 directory = _get_directory_from_id(directory_id, session)
                 directory.name = new_name
+
     @staticmethod
     def rename_directory_file(directory_file_id: str, new_name: str) -> None:
         with Session() as session:
             with session.begin():
                 directory_file = _get_directory_file_from_id(directory_file_id, session)
                 directory_file.file_name = new_name
+
     @staticmethod
     def move_directory(directory_id: str, destination_directory_id: str | None) -> None:
         with Session() as session:
             with session.begin():
                 _move_directory(directory_id, destination_directory_id, session)
+
     @staticmethod
     def move_directory_file(
         directory_file_id: str, destination_directory_id: str
     ) -> None:
         with Session() as session:
             with session.begin():
-                _move_directory_file(directory_file_id, destination_directory_id, session)
+                _move_directory_file(
+                    directory_file_id, destination_directory_id, session
+                )
+
     @staticmethod
     def create_directory(name: str, parent_id: str | None) -> None:
         with Session() as session:
             with session.begin():
                 directory = build_directory(name, parent_id)
                 session.add(directory)
+
     @staticmethod
     def cut_paste_directories(
         directory_ids: set[str], destination_directory_id: str | None
@@ -213,6 +239,7 @@ class FilebaseService:
             with session.begin():
                 for d_id in directory_ids:
                     _move_directory(d_id, destination_directory_id, session)
+
     @staticmethod
     def cut_paste_directory_files(
         directory_file_ids: set[str], destination_directory_id: str
