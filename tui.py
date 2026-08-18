@@ -256,7 +256,7 @@ class FilebaseApp(App):
         self.selected_directory_file_ids = set()
 
     def action_cut_paste(self) -> None:
-        if self.current_directory_id is None and self.selected_directory_file_ids == set():
+        if self.current_directory_id is None and self.selected_directory_file_ids != set():
             raise ValueError("Attempted to move directory files to None directory, aborted")
 
         FilebaseService.cut_paste_directories(
