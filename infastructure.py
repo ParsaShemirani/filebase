@@ -1,18 +1,125 @@
 from __future__ import annotations
 
-import shutil
+import os
 import uuid
 import json
 from pathlib import Path
 from datetime import datetime, timezone
 from hashlib import file_digest
 from dataclasses import dataclass, field
-from sqlalchemy import select
-from sqlalchemy.orm import Session as SessionType
-from textual import log
 
-from models import File, Directory, DirectoryFile, StorageDevice, StorageDeviceFile
-from connection import Session
+from dotenv import load_dotenv
+
+from sqlalchemy import (
+    Text,
+    Integer,
+    ForeignKey,
+    UniqueConstraint,
+    create_engine,
+    select,
+)
+from sqlalchemy.orm import (
+    sessionmaker,
+    DeclarativeBase,
+    MappedAsDataclass,
+    Mapped,
+    Session as SessionType,
+    mapped_column,
+)
+
+load_dotenv()
+
+
+def get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        raise RuntimeError(f"{name} not set in .env")
+    return value
+
+
+DATABASE_PATH_STR = get_required_env("DATABASE_PATH_STR")
+
+engine = create_engine("sqlite:///" + DATABASE_PATH_STR, echo=False)
+Session = sessionmaker(bind=engine)
+
+
+def get_current_time_str() -> str:
+    return datetime.now(tz=timezone.utc).isoformat()
+
+
+class Base(MappedAsDataclass, DeclarativeBase):
+    pass
+
+
+class File(Base):
+    __tablename__ = "files"
+
+    sha256_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
+
+
+class Directory(Base):
+    __tablename__ = "directories"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    parent_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("directories.id"), nullable=True
+    )
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
+
+    __table_args__ = (UniqueConstraint("parent_id", "name"),)
+
+
+class DirectoryFile(Base):
+    __tablename__ = "directory_files"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    directory_id: Mapped[str] = mapped_column(Text, ForeignKey("directories.id"))
+    file_sha256_hash: Mapped[str] = mapped_column(
+        Text, ForeignKey("files.sha256_hash"), nullable=False
+    )
+    file_name: Mapped[str] = mapped_column(Text)
+    stats_json: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
+
+    __table_args__ = (UniqueConstraint("directory_id", "file_name"),)
+
+
+class StorageDevice(Base):
+    __tablename__ = "storage_devices"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
+
+
+class StorageDeviceFile(Base):
+    __tablename__ = "storage_device_files"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    storage_device_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("storage_devices.id")
+    )
+    file_sha256_hash: Mapped[str] = mapped_column(
+        Text, ForeignKey("files.sha256_hash"), nullable=False
+    )
+    inserted_ts: Mapped[str] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None
+    )
+
+    __table_args__ = (UniqueConstraint("storage_device_id", "file_sha256_hash"),)
+
 
 IGNORED_NAMES = {".DS_Store"}
 
@@ -59,9 +166,6 @@ def build_directory_file(
         file_name=file_path.name,
         stats_json=get_stats_json(file_path),
     )
-
-
-### Sessioners
 
 
 def _get_directory_from_id(directory_id: str, session: SessionType) -> Directory:
@@ -230,8 +334,8 @@ class CatalogService:
                     _move_directory_file(df_id, destination_directory_id, session)
 
 
-class StorageService:
-    ...
+class StorageService: ...
+
 
 @dataclass
 class ImportNode:
@@ -242,8 +346,7 @@ class ImportNode:
     children: list[DirectoryNode] = field(default_factory=list)
 
 
-class ImportService:
-    ...
+class ImportService: ...
 
 
 @dataclass
@@ -255,7 +358,9 @@ class DirectoryNode:
     children: list[DirectoryNode] = field(init=False, default_factory=list)
 
     @classmethod
-    def from_path(cls, directory_path: Path, parent_id: str | None = None) -> DirectoryNode:
+    def from_path(
+        cls, directory_path: Path, parent_id: str | None = None
+    ) -> DirectoryNode:
         directory = build_directory(directory_path.name, parent_id)
         directory_node = cls()
         directory_node.directory = directory
@@ -277,7 +382,6 @@ class DirectoryNode:
                 directory_node.children.append(child_directory_node)
 
         return directory_node
-
 
     def get_all_directories(self) -> list[Directory]:
         directories = [self.directory]
@@ -341,6 +445,8 @@ class DirectoryNode:
             )
 
         for child in self.children:
-            directory_file_path_map.update(child.get_directory_file_path_map(current_path))
+            directory_file_path_map.update(
+                child.get_directory_file_path_map(current_path)
+            )
 
         return directory_file_path_map

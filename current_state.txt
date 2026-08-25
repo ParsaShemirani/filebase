@@ -16,3 +16,27 @@ if so, does it already have a StorageDeviceFile instance? If not,
 copy over the ones and zeros to our target StorageDevice, add the instance, and move on.
 Once complete, the database will confirm there are no File objects that are not stored,
 and I can safely delete the local guys.
+
+
+
+2026-08-20T14:50-07:00
+
+Seperation of concerns and services
+
+Some tasks only interact with the database. Some reference the local filesystem.
+Some reference storage devices that are managed by the database.
+
+I have just combined everything that is not run directly into infastructure.py.
+
+1. Only interact with database
+2. Only interact with filesystem, generating, processing, no database interaction
+3. Higher level workflows, services that use pieces from each
+
+
+2026-08-24T13:28-07:00
+
+Idea:
+- Models & connection
+- utils.py which don't know database exists
+- db_funcs.py which only interact with database.
+- 
