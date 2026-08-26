@@ -1,38 +1,3 @@
-2026-08-18T00:43-07:00
-
-- Solid tui for navigating existing database,
-creating directories, moving and renaming.
-
-Main focus: ingesting and retrieving.
-
-Idea: directory node or similar structure can build
-objects. CLI will output tree like text so I can approve.
-Then, it will add the objects, but the files have not been stored on
-a device, and the database reflects that, as no StorageDeviceFile instances
-appear for the File. I must keep all such files on my local system in one place,
-so overnight, i may run a script.
-recursively, for each file: does its hash have a File record?
-if so, does it already have a StorageDeviceFile instance? If not, 
-copy over the ones and zeros to our target StorageDevice, add the instance, and move on.
-Once complete, the database will confirm there are no File objects that are not stored,
-and I can safely delete the local guys.
-
-
-
-2026-08-20T14:50-07:00
-
-Seperation of concerns and services
-
-Some tasks only interact with the database. Some reference the local filesystem.
-Some reference storage devices that are managed by the database.
-
-I have just combined everything that is not run directly into infastructure.py.
-
-1. Only interact with database
-2. Only interact with filesystem, generating, processing, no database interaction
-3. Higher level workflows, services that use pieces from each
-
-
 2026-08-24T13:28-07:00
 
 Idea:
@@ -40,3 +5,9 @@ Idea:
 - utils.py which don't know database exists
 - db_funcs.py which only interact with database.
 - 
+
+
+2026-08-24T21:11-07:00
+
+Just made db_session wrapper,
+rewriting db_funcs with that in mind
