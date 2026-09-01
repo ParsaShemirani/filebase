@@ -1,32 +1,16 @@
 from __future__ import annotations
-
-import os
-import uuid
-import json
-from pathlib import Path
-from datetime import datetime, timezone
-from hashlib import file_digest
-from dataclasses import dataclass, field
 from functools import wraps
 
 from sqlalchemy import (
-    Text,
-    Integer,
-    ForeignKey,
-    UniqueConstraint,
     create_engine,
     select,
 )
 from sqlalchemy.orm import (
     sessionmaker,
-    DeclarativeBase,
-    MappedAsDataclass,
-    Mapped,
     Session as SessionType,
-    mapped_column,
 )
 
-from models import File, Directory, DirectoryFile
+from models import File, Directory, DirectoryFile, StorageDevice, StorageDeviceFile
 from env_vars import DATABASE_PATH_STR
 
 
@@ -54,6 +38,17 @@ def db_session(*, transaction: bool):
 
 
 class DatabaseService:
+    @db_session(transaction=False)
+    def get_file_from_sha256_hash(
+        self, file_sha256_hash: str, *, session: SessionType
+    ) -> File:
+        file = session.get(File, file_sha256_hash)
+
+        if File is not None:
+            return File
+        else:
+            raise ValueError(f"File with sha256_hash {file_sha256_hash} not found")
+
     @db_session(transaction=False)
     def get_directory_from_id(
         self, directory_id: str, *, session: SessionType
@@ -99,12 +94,15 @@ class DatabaseService:
 
     @db_session(transaction=False)
     def get_directory_files(
-        self, directory_id: str, *, session: SessionType
+        self, directory_id: str | None, *, session: SessionType
     ) -> list[DirectoryFile]:
-        self.get_directory_from_id(directory_id, session=session)
-        return session.scalars(
-            select(DirectoryFile).where(DirectoryFile.directory_id == directory_id)
-        ).all()
+        if directory_id is not None:
+            self.get_directory_from_id(directory_id, session=session)
+            return session.scalars(
+                select(DirectoryFile).where(DirectoryFile.directory_id == directory_id)
+            ).all()
+        else:
+            return []
 
     @db_session(transaction=False)
     def generate_directory_path(
@@ -128,6 +126,24 @@ class DatabaseService:
 
         directory_list = reversed(reverse_directory_list)
         return "/" + "/".join(d.name for d in directory_list)
+
+    @db_session(transaction=False)
+    def get_storage_device_from_id(self, storage_device_id: str, *, session: SessionType) -> StorageDevice:
+        storage_device = session.get(StorageDevice, storage_device_id)
+
+        if storage_device is not None:
+            return storage_device
+        else:
+            raise ValueError(f"StorageDevice with id {storage_device_id} not found")
+
+    @db_session(transaction=False)
+    def get_storage_device_file_from_ids(self, storage_device_id: str, file_sha256_hash: str, *, session: SessionType) -> StorageDevice:
+        storage_device_file = session.scalar(select(StorageDeviceFile).where(StorageDeviceFile.storage_device_id == storage_device_id, StorageDeviceFile.file_sha256_hash == file_sha256_hash))
+
+        if storage_device_file is not None:
+            return storage_device_file
+        else:
+            raise ValueError(f"StorageDeviceFile with storage_device_id {storage_device_id} and file_sha256_hash {file_sha256_hash} not found")
 
     # WRITERS
 
@@ -198,3 +214,9 @@ class DatabaseService:
     ) -> None:
         for df_id in directory_file_ids:
             self.move_directory_file(df_id, destination_directory_id, session=session)
+
+    @db_session(transaction=True)
+    def insert_objects(self, objects: list[object], *, session: SessionType) -> None:
+        session.add_all(objects)
+
+

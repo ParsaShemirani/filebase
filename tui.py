@@ -9,7 +9,9 @@ from textual.screen import ModalScreen
 from textual import log
 
 from models import DirectoryFile, Directory
-from helpers import CatalogService
+from db_funcs import DatabaseService
+
+db = DatabaseService()
 
 
 @dataclass
@@ -118,7 +120,7 @@ class DirectoriesViewer(DataTable):
     def action_rename_directory(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_id = cell_key.row_key.value
-        directory_name = CatalogService.get_directory_from_id(directory_id).name
+        directory_name = db.get_directory_from_id(directory_id).name
 
         def handle_rename(new_name: str | None) -> None:
             if new_name:
@@ -184,7 +186,7 @@ class DirectoryFilesViewer(DataTable):
     def action_rename_directory_file(self) -> None:
         cell_key = self.coordinate_to_cell_key(self.cursor_coordinate)
         directory_file_id = cell_key.row_key.value
-        directory_file_name = CatalogService.get_directory_file_from_id(
+        directory_file_name = db.get_directory_file_from_id(
             directory_file_id
         ).file_name
 
@@ -229,14 +231,14 @@ class FilebaseApp(App):
 
     def watch_current_directory_id(self) -> None:
         self.info_data.current_directory_path_str = (
-            CatalogService.generate_directory_path(self.current_directory_id)
+            db.generate_directory_path(self.current_directory_id)
         )
         self.mutate_reactive(FilebaseApp.info_data)
 
-        self.child_directories = CatalogService.get_child_directories(
+        self.child_directories = db.get_child_directories(
             self.current_directory_id
         )
-        self.directory_files = CatalogService.get_directory_files(
+        self.directory_files = db.get_directory_files(
             self.current_directory_id
         )
 
@@ -252,7 +254,7 @@ class FilebaseApp(App):
 
     def action_parent_directory(self) -> None:
         if self.current_directory_id is not None:
-            parent_directory = CatalogService.get_parent_directory(self.current_directory_id)
+            parent_directory = db.get_parent_directory(self.current_directory_id)
             if parent_directory is not None:
                 self.current_directory_id = parent_directory.id
             else:
@@ -271,10 +273,10 @@ class FilebaseApp(App):
                 "Attempted to move directory files to None directory, aborted"
             )
 
-        CatalogService.cut_paste_directories(
+        db.cut_paste_directories(
             self.selected_directory_ids, self.current_directory_id
         )
-        CatalogService.cut_paste_directory_files(
+        db.cut_paste_directory_files(
             self.selected_directory_file_ids, self.current_directory_id
         )
 
@@ -284,7 +286,11 @@ class FilebaseApp(App):
     def action_create_directory(self) -> None:
         def handle_create_directory(name: str | None) -> None:
             if name:
-                CatalogService.create_directory(name, self.current_directory_id)
+                new_directory = Directory(
+                    name=name,
+                    parent_id=self.current_directory_id
+                )
+                db.insert_objects([new_directory])
 
         self.push_screen(
             EnterNameScreen("", "Create Directory"), callback=handle_create_directory
@@ -305,7 +311,7 @@ class FilebaseApp(App):
     def on_directories_viewer_directory_renamed(
         self, message: DirectoriesViewer.DirectoryRenamed
     ) -> None:
-        CatalogService.rename_directory(message.directory_id, message.new_name)
+        db.rename_directory(message.directory_id, message.new_name)
 
     def on_directory_files_viewer_directory_file_selected(
         self, message: DirectoryFilesViewer.DirectoryFileSelected
@@ -317,7 +323,7 @@ class FilebaseApp(App):
     def on_directory_files_viewer_directory_file_renamed(
         self, message: DirectoryFilesViewer.DirectoryFileRenamed
     ) -> None:
-        CatalogService.rename_directory_file(
+        db.rename_directory_file(
             message.directory_file_id, message.new_name
         )
 

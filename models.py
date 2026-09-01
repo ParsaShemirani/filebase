@@ -79,7 +79,7 @@ class StorageDevice(Base):
     id: Mapped[str] = mapped_column(
         Text, primary_key=True, default_factory=generate_uuid4_str, kw_only=True
     )
-    ...
+    path: Mapped[str] = mapped_column(Text, nullable=False)
     inserted_ts: Mapped[str | None] = mapped_column(
         Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
     )

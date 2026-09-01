@@ -11,3 +11,16 @@ Idea:
 
 Just made db_session wrapper,
 rewriting db_funcs with that in mind
+
+2026-08-25T17:01-07:00
+
+rewrote db_funcs. These services are the applicaiotn
+layers, i want to now make different services like importservice,
+retrieve service, storage service, and some sergices can use others.
+
+
+2026-09-01T15:44-07:00
+Tried to start up storage service. TUI got working with browser design. But using id + composite id has issues
+for DirectoryFile and StorageDeviceFile. I'm still not confident on the architecture for file storage,
+if I should store local paths so its just on this mac. Or configure so its compatible with cloud / remote
+storage locations.
