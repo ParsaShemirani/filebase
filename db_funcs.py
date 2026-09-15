@@ -10,7 +10,7 @@ from sqlalchemy.orm import (
     Session as SessionType,
 )
 
-from models import File, Directory, DirectoryFile, StorageDevice, StorageDeviceFile
+from models import File, Directory, DirectoryFile
 from env_vars import DATABASE_PATH_STR
 
 
@@ -44,8 +44,8 @@ class DatabaseService:
     ) -> File:
         file = session.get(File, file_sha256_hash)
 
-        if File is not None:
-            return File
+        if file is not None:
+            return file
         else:
             raise ValueError(f"File with sha256_hash {file_sha256_hash} not found")
 
@@ -126,24 +126,6 @@ class DatabaseService:
 
         directory_list = reversed(reverse_directory_list)
         return "/" + "/".join(d.name for d in directory_list)
-
-    @db_session(transaction=False)
-    def get_storage_device_from_id(self, storage_device_id: str, *, session: SessionType) -> StorageDevice:
-        storage_device = session.get(StorageDevice, storage_device_id)
-
-        if storage_device is not None:
-            return storage_device
-        else:
-            raise ValueError(f"StorageDevice with id {storage_device_id} not found")
-
-    @db_session(transaction=False)
-    def get_storage_device_file_from_ids(self, storage_device_id: str, file_sha256_hash: str, *, session: SessionType) -> StorageDevice:
-        storage_device_file = session.scalar(select(StorageDeviceFile).where(StorageDeviceFile.storage_device_id == storage_device_id, StorageDeviceFile.file_sha256_hash == file_sha256_hash))
-
-        if storage_device_file is not None:
-            return storage_device_file
-        else:
-            raise ValueError(f"StorageDeviceFile with storage_device_id {storage_device_id} and file_sha256_hash {file_sha256_hash} not found")
 
     # WRITERS
 

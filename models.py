@@ -71,34 +71,3 @@ class DirectoryFile(Base):
     )
 
     __table_args__ = (UniqueConstraint("directory_id", "file_name"),)
-
-
-class StorageDevice(Base):
-    __tablename__ = "storage_devices"
-
-    id: Mapped[str] = mapped_column(
-        Text, primary_key=True, default_factory=generate_uuid4_str, kw_only=True
-    )
-    path: Mapped[str] = mapped_column(Text, nullable=False)
-    inserted_ts: Mapped[str | None] = mapped_column(
-        Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
-    )
-
-
-class StorageDeviceFile(Base):
-    __tablename__ = "storage_device_files"
-
-    id: Mapped[str] = mapped_column(
-        Text, primary_key=True, default_factory=generate_uuid4_str, kw_only=True
-    )
-    storage_device_id: Mapped[str] = mapped_column(
-        Text, ForeignKey("storage_devices.id")
-    )
-    file_sha256_hash: Mapped[str] = mapped_column(
-        Text, ForeignKey("files.sha256_hash"), nullable=False
-    )
-    inserted_ts: Mapped[str | None] = mapped_column(
-        Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
-    )
-
-    __table_args__ = (UniqueConstraint("storage_device_id", "file_sha256_hash"),)
