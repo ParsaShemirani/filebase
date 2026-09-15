@@ -1,3 +1,4 @@
+import subprocess
 from dataclasses import dataclass
 
 from textual.app import App, ComposeResult
@@ -16,6 +17,7 @@ db = DatabaseService()
 
 @dataclass
 class InfoData:
+    current_directory_id: str | None
     current_directory_path_str: str
     selected_directories_count: int
     selected_directory_files_count: int
@@ -24,6 +26,7 @@ class InfoData:
 class InfoDisplay(Label):
     info_data: reactive[InfoData] = reactive(
         InfoData(
+            current_directory_id=None,
             current_directory_path_str="/",
             selected_directories_count=0,
             selected_directory_files_count=0,
@@ -31,8 +34,10 @@ class InfoDisplay(Label):
     )
 
     def watch_info_data(self) -> None:
-        info_text = (
-            f"Current Directory Path: {self.info_data.current_directory_path_str}"
+        info_text = (""
+            + f"Current Directory ID: {self.info_data.current_directory_id}"
+            + "\n"
+            + f"Current Directory Path: {self.info_data.current_directory_path_str}"
             + "\n"
             + f"Selected Directories Count: {self.info_data.selected_directories_count}"
             + " | "
@@ -208,6 +213,7 @@ class DirectoryFilesViewer(DataTable):
 
 class FilebaseApp(App):
     BINDINGS = [
+        ("y", "copy_current_directory_id", "Copy Current Directory ID"),
         ("h", "parent_directory", "Parent Directory"),
         ("d", "deselect_all", "Deselect All"),
         ("x", "cut_paste", "Cut Paste"),
@@ -217,6 +223,7 @@ class FilebaseApp(App):
 
     info_data: reactive[InfoData] = reactive(
         InfoData(
+            current_directory_id=None,
             current_directory_path_str="/",
             selected_directories_count=0,
             selected_directory_files_count=0,
@@ -230,6 +237,7 @@ class FilebaseApp(App):
     selected_directory_file_ids: reactive[set[str]] = reactive(set)
 
     def watch_current_directory_id(self) -> None:
+        self.info_data.current_directory_id = self.current_directory_id
         self.info_data.current_directory_path_str = (
             db.generate_directory_path(self.current_directory_id)
         )
@@ -295,6 +303,18 @@ class FilebaseApp(App):
         self.push_screen(
             EnterNameScreen("", "Create Directory"), callback=handle_create_directory
         )
+
+    def action_copy_current_directory_id(self) -> None:
+        if self.current_directory_id is not None:
+            subprocess.run(
+                ["pbcopy"],
+                input=self.current_directory_id,
+                text=True,
+                check=True
+            )
+            self.notify("Copied current directory id")
+        else:
+            self.notify("At Root: No directory ID")
 
     def on_directories_viewer_directory_entered(
         self, message: DirectoriesViewer.DirectoryEntered

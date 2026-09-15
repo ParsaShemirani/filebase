@@ -24,3 +24,9 @@ Tried to start up storage service. TUI got working with browser design. But usin
 for DirectoryFile and StorageDeviceFile. I'm still not confident on the architecture for file storage,
 if I should store local paths so its just on this mac. Or configure so its compatible with cloud / remote
 storage locations.
+
+2026-09-15T16:17-07:00
+Used AI to make transporters.py, and ditched the storage
+service in favor of a set outgoing folder and one
+storage path. Will manually take care of moving files from
+outgoing to storage.
