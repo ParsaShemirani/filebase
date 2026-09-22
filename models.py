@@ -1,6 +1,26 @@
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
-from sqlalchemy.types import TEXT
+import uuid
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Text,
+    Integer,
+    ForeignKey,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    MappedAsDataclass,
+    Mapped,
+    mapped_column,
+)
+
+
+def get_current_time_str() -> str:
+    return datetime.now(tz=timezone.utc).isoformat()
+
+
+def generate_uuid4_str() -> str:
+    return str(uuid.uuid4())
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
@@ -10,57 +30,44 @@ class Base(MappedAsDataclass, DeclarativeBase):
 class File(Base):
     __tablename__ = "files"
 
-    sha256_hash: Mapped[str] = mapped_column(TEXT, primary_key=True)
-    extension: Mapped[str] = mapped_column(TEXT, nullable=False)
-    fs_created_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
+    sha256_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    inserted_ts: Mapped[str | None] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
+    )
 
 
-class Bundle(Base):
-    __tablename__ = "bundles"
+class Directory(Base):
+    __tablename__ = "directories"
 
-    id: Mapped[str] = mapped_column(TEXT, primary_key=True)
-    name: Mapped[str] = mapped_column(TEXT, nullable=False)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
-
+    id: Mapped[str] = mapped_column(
+        Text, primary_key=True, default_factory=generate_uuid4_str, kw_only=True
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     parent_id: Mapped[str | None] = mapped_column(
-        TEXT,
-        ForeignKey("bundles.id"),
+        Text, ForeignKey("directories.id"), nullable=True
+    )
+    inserted_ts: Mapped[str | None] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
     )
 
+    __table_args__ = (UniqueConstraint("parent_id", "name"),)
 
-class BundleFile(Base):
-    __tablename__ = "bundle_files"
 
-    bundle_id: Mapped[str] = mapped_column(
-        TEXT,
-        ForeignKey("bundles.id"),
-        primary_key=True,
+class DirectoryFile(Base):
+    __tablename__ = "directory_files"
+
+    id: Mapped[str] = mapped_column(
+        Text, primary_key=True, default_factory=generate_uuid4_str, kw_only=True
     )
+    directory_id: Mapped[str] = mapped_column(Text, ForeignKey("directories.id"))
     file_sha256_hash: Mapped[str] = mapped_column(
-        TEXT,
-        ForeignKey("files.sha256_hash"),
-        primary_key=True,
+        Text, ForeignKey("files.sha256_hash"), nullable=False
     )
-    file_name: Mapped[str] = mapped_column(TEXT, nullable=False)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
-
-
-class Collection(Base):
-    __tablename__ = "collections"
-
-    id: Mapped[str] = mapped_column(TEXT, primary_key=True)
-    name: Mapped[str] = mapped_column(TEXT, nullable=False)
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
-
-
-class CollectionFile(Base):
-    __tablename__ = "collection_files"
-
-    collection_id: Mapped[str] = mapped_column(
-        TEXT, ForeignKey("collections.id"), primary_key=True
+    file_name: Mapped[str] = mapped_column(Text, nullable=False)
+    stats_json: Mapped[str] = mapped_column(Text, nullable=False)
+    inserted_ts: Mapped[str | None] = mapped_column(
+        Text, nullable=False, insert_default=get_current_time_str, default=None, kw_only=True
     )
-    file_sha256_hash: Mapped[str] = mapped_column(
-        TEXT, ForeignKey("files.sha256_hash"), primary_key=True
-    )
-    inserted_ts: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+    __table_args__ = (UniqueConstraint("directory_id", "file_name"),)

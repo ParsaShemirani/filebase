@@ -1,6 +1,10 @@
 SQLAlchemy
 python-dotenv
+factory_boy
 typer
 tabulate
+PySide6
+textual
 
 ruff
+textual-dev

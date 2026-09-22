@@ -1,9 +1,7 @@
 import os
-
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 def get_required_env(name: str) -> str:
     value = os.getenv(name)
@@ -11,7 +9,4 @@ def get_required_env(name: str) -> str:
         raise RuntimeError(f"{name} not set in .env")
     return value
 
-
 DATABASE_PATH_STR = get_required_env("DATABASE_PATH_STR")
-OUTGOING_PATH_STR = get_required_env("OUTGOING_PATH_STR")
-STORAGE_PATH_STR = get_required_env("STORAGE_PATH_STR")
